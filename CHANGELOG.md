@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.8.0](https://github.com/k1LoW/mo/compare/v0.7.0...v0.8.0) - 2026-03-01
+### New Features 🎉
+- feat: add copy buttons to Mermaid blocks by @k1LoW in https://github.com/k1LoW/mo/pull/34
+
 ## [v0.7.0](https://github.com/k1LoW/mo/compare/v0.6.0...v0.7.0) - 2026-03-01
 ### New Features 🎉
 - feat: add copy button to code blocks by @k1LoW in https://github.com/k1LoW/mo/pull/32
