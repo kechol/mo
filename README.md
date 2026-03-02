@@ -12,14 +12,14 @@
 
 ## Features
 
-- Live-reload on save
 - GitHub-flavored Markdown (tables, task lists, footnotes, etc.)
 - Syntax highlighting ([Shiki](https://shiki.style/))
 - [Mermaid](https://mermaid.js.org/) diagram rendering
 - Dark / light theme
-- Flat / tree sidebar view with drag-and-drop reorder
-- Table of contents panel
 - File grouping
+- Table of contents panel
+- Flat / tree sidebar view with drag-and-drop reorder
+- Live-reload on save
 
 ## Install
 

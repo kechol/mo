@@ -17,11 +17,20 @@ make build
 # Dev: build frontend then run with args
 make dev ARGS="testdata/basic.md"
 
+# Dev with tab groups (-t can only specify one group per invocation)
+make dev ARGS="-t design testdata/basic.md"
+
 # Frontend code generation only (called by make build/dev via go generate)
 make generate
 
-# Run tests
+# Run all tests (frontend + Go)
 make test
+
+# Run a single frontend test
+cd internal/frontend && pnpm test src/utils/buildTree.test.ts
+
+# Run Go tests only
+go test ./...
 
 # Run linters (golangci-lint + gostyle)
 make lint
@@ -29,6 +38,13 @@ make lint
 # CI target (install dev deps + generate + test)
 make ci
 ```
+
+### CLI Flags
+
+- `--port` / `-p` — Server port (default: 6275)
+- `--target` / `-t` — Tab group name (default: `"default"`)
+- `--open` — Always open browser
+- `--no-open` — Never open browser
 
 ## Architecture
 
@@ -45,23 +61,36 @@ make ci
 - Package manager: **pnpm** (version specified in `internal/frontend/package.json` `packageManager` field)
 - Markdown rendering: `react-markdown` + `remark-gfm` + `rehype-raw` + `rehype-slug` (heading IDs) + `@shikijs/rehype` (syntax highlighting) + `mermaid` (diagram rendering)
 - SPA routing via `window.location.pathname` (no router library)
-- Key components: `App.tsx` (routing/state), `Sidebar.tsx` (file list, resizable), `MarkdownViewer.tsx` (rendering + raw view toggle), `TocPanel.tsx` (table of contents, resizable), `ThemeToggle.tsx` (dark/light mode), `GroupDropdown.tsx` (group switcher)
+- Key components: `App.tsx` (routing/state), `Sidebar.tsx` (file list with flat/tree view, resizable, drag-and-drop reorder), `TreeView.tsx` (tree view with collapsible directories), `MarkdownViewer.tsx` (rendering + raw view toggle), `TocPanel.tsx` (table of contents, resizable), `GroupDropdown.tsx` (group switcher), `FileContextMenu.tsx` (shared kebab menu for file operations)
 - Custom hooks: `useSSE.ts` (SSE subscription with auto-reconnect), `useApi.ts` (typed API fetch wrappers), `useActiveHeading.ts` (scroll-based active heading tracking via IntersectionObserver)
+- Utilities: `buildTree.ts` (converts flat file list to hierarchical tree with common prefix removal and single-child directory collapsing)
 - Theme: GitHub-style light/dark via CSS custom properties (`--color-gh-*`) in `styles/app.css`, toggled by `data-theme` attribute on `<html>`. UI components use Tailwind classes like `bg-gh-bg-sidebar`, `text-gh-text-secondary`, etc.
-- Toggle button pattern: `RawToggle.tsx` and `TocToggle.tsx` follow the same style (`bg-transparent border border-gh-border rounded-md p-1.5 text-gh-text-secondary`). New toolbar buttons should match this pattern.
+- Toggle button pattern: `RawToggle.tsx` and `TocToggle.tsx` follow the same style (`bg-transparent border border-gh-border rounded-md p-1.5 text-gh-text-secondary`). Header buttons (`ViewModeToggle`, `ThemeToggle`, sidebar toggle) use `text-gh-header-text` instead. New buttons should match the appropriate variant.
 
 ## Key Design Patterns
 
 - **Single instance**: CLI probes `/_/api/groups` on the target port. If already running, pushes files via `POST /_/api/files` and exits.
-- **File IDs, not paths**: Files get sequential integer IDs server-side. Paths are never exposed to the client (`json:"-"`).
+- **File IDs**: Files get sequential integer IDs server-side. The frontend primarily references files by ID. Absolute paths are available via `FileEntry.path` for display (e.g., tooltip, tree view).
 - **Tab groups**: Files are organized into named groups. Group name maps to the URL path (e.g., `/design`). Default group name is `"default"`.
 - **Live-reload via SSE**: fsnotify watches files; `file-changed` events trigger frontend to re-fetch content by file ID.
+- **Sidebar view modes**: Flat (default, with drag-and-drop reorder via dnd-kit) and tree (hierarchical directory view). View mode is persisted per-group in localStorage. Collapsed directory state is managed inside `TreeView` and also persisted per-group.
 - **Resizable panels**: Both `Sidebar.tsx` (left) and `TocPanel.tsx` (right) use the same drag-to-resize pattern with localStorage persistence. Left sidebar uses `e.clientX`, right panel uses `window.innerWidth - e.clientX`.
 - **Toolbar buttons in content area**: The toolbar column (ToC + Raw toggles) lives inside `MarkdownViewer.tsx`, positioned with `shrink-0 flex flex-col gap-2 -mr-4 -mt-4` to align with the header.
+- **localStorage conventions**: All keys use `mo-` prefix (e.g., `mo-sidebar-width`, `mo-sidebar-viewmode`, `mo-sidebar-tree-collapsed`, `mo-theme`). Read patterns use `try/catch` around `JSON.parse` with fallback defaults.
 
 ## API Conventions
 
 All internal endpoints use `/_/api/` prefix and SSE uses `/_/events`. The `/_/` prefix avoids collisions with user-facing group name routes.
+
+Key endpoints:
+- `GET /_/api/groups` — List all groups with files
+- `POST /_/api/files` — Add file
+- `DELETE /_/api/files/{id}` — Remove file
+- `GET /_/api/files/{id}/content` — File content (markdown)
+- `PUT /_/api/files/{id}/group` — Move file to another group
+- `PUT /_/api/groups/{name}/order` — Reorder files in a group
+- `POST /_/api/files/open` — Open relative file link
+- `GET /_/events` — SSE (event types: `update`, `file-changed`, `restart`)
 
 ## CI/CD
 
