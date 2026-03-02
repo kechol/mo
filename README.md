@@ -80,13 +80,27 @@ The sidebar supports flat and tree view modes. Flat view shows file names only, 
 |------|------|
 | ![Flat view](images/sidebar-flat.png) | ![Tree view](images/sidebar-tree.png) |
 
-### Shutting down the server
+### Starting and stopping
 
-Use the `--shutdown` flag to gracefully shut down a running `mo` server:
+`mo` runs in the background by default — the command returns immediately, leaving the shell free for other work. This makes it easy to incorporate into scripts, tool chains, or LLM-driven workflows.
+
+``` console
+$ mo README.md
+mo: serving at http://localhost:6275 (pid 12345)
+$ # shell is available immediately
+```
+
+Use the `--shutdown` flag to gracefully shut down a running server:
 
 ``` console
 $ mo --shutdown            # Shut down the server on the default port
 $ mo --shutdown -p 6276    # Shut down the server on a specific port
+```
+
+If you need the server to run in the foreground (e.g. for debugging), use `--foreground`:
+
+``` console
+$ mo --foreground README.md
 ```
 
 ### Server restart
@@ -102,6 +116,7 @@ Click the restart button (bottom-right corner) to restart the `mo` server proces
 | `--open` | | | Always open browser |
 | `--no-open` | | | Never open browser |
 | `--shutdown` | | | Shut down the running server |
+| `--foreground` | | | Run server in foreground |
 
 ## Build
 
