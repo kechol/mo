@@ -127,3 +127,7 @@ Requires Go and [pnpm](https://pnpm.io/).
 ``` console
 $ make build
 ```
+
+## References
+
+- [yusukebe/gh-markdown-preview](https://github.com/yusukebe/gh-markdown-preview): GitHub CLI extension to preview Markdown looks like GitHub.

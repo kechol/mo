@@ -32,11 +32,10 @@ func Dir() (string, error) {
 // Setup configures slog to write to a rotating log file under XDG_STATE_HOME/mo/log/.
 // Returns a cleanup function that closes the log file.
 func Setup(port int) (func(), error) {
-	stateHome, err := xdg.StateHome()
+	dir, err := Dir()
 	if err != nil {
 		return nil, fmt.Errorf("cannot determine XDG state home: %w", err)
 	}
-	dir := filepath.Join(stateHome, "mo", "log")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
