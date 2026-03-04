@@ -66,6 +66,14 @@ Some text with --- inside it`;
     expect(result!.content).toContain("--- inside it");
   });
 
+  it("handles CRLF line endings", () => {
+    const input = "---\r\ntitle: Hello\r\n---\r\n# Content";
+    const result = parseFrontmatter(input);
+    expect(result).not.toBeNull();
+    expect(result!.yaml).toBe("title: Hello");
+    expect(result!.content).toBe("# Content");
+  });
+
   it("handles trailing newline after closing ---", () => {
     const input = `---
 title: Test

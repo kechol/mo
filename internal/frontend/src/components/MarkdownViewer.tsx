@@ -327,10 +327,8 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 }
 
 function FrontmatterBlock({ yaml }: { yaml: string }) {
-  const [open, setOpen] = useState(true);
-
   return (
-    <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)} className="mb-4">
+    <details open className="mb-4">
       <summary className="cursor-pointer select-none text-gh-text-secondary text-sm font-medium py-1">Metadata</summary>
       <div className="mt-2">
         <CodeBlock language="yaml" code={yaml} />
@@ -515,7 +513,7 @@ export function MarkdownViewer({ fileId, revision, onFileOpened, onHeadingsChang
         </Markdown>
       </>
     );
-  }, [content, parsed, isRawView, components]);
+  }, [content, isRawView, components]);
 
   const prevHeadingsKey = useRef("");
   useEffect(() => {

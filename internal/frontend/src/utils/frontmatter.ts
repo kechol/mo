@@ -4,7 +4,7 @@ export interface ParsedFrontmatter {
 }
 
 export function parseFrontmatter(raw: string): ParsedFrontmatter | null {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) return null;
   return { yaml: match[1], content: match[2] };
 }
