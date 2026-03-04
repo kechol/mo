@@ -18,8 +18,13 @@ export default defineConfig({
               template(dependencies) {
                 return dependencies
                   .map(
-                    (dep) =>
-                      `${dep.name}\n${dep.repository || dep.homepage || ""}\n----------------------------------------------------------------\n${dep.licenseText || `License: ${dep.license}`}\n`,
+                    (dep) => {
+                      const repo = typeof dep.repository === "string"
+                        ? dep.repository
+                        : dep.repository?.url || "";
+                      const url = repo || dep.homepage || "";
+                      return `${dep.name}\n${url}\n----------------------------------------------------------------\n${dep.licenseText || `License: ${dep.license}`}\n`;
+                    },
                   )
                   .join(
                     "\n================================================================\n\n",
