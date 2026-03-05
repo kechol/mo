@@ -377,6 +377,12 @@ func doUnwatch(addr string, patterns []string, groupName string) error {
 	if err != nil {
 		return fmt.Errorf("no mo server found on %s", addr)
 	}
+
+	var groups []json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
+		resp.Body.Close()
+		return fmt.Errorf("server on %s is not a mo instance", addr)
+	}
 	resp.Body.Close()
 
 	for _, pat := range patterns {
