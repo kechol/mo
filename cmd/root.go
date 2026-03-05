@@ -279,7 +279,10 @@ func resolveFiles(args []string) ([]string, error) {
 }
 
 func tryAddToExisting(addr string, files []string, patterns []string) bool {
-	client := &http.Client{Timeout: 500 * time.Millisecond}
+	client, err := probeServer(addr)
+	if err != nil {
+		return false
+	}
 
 	resp, err := client.Get(fmt.Sprintf("http://%s/_/api/groups", addr))
 	if err != nil {
@@ -668,7 +671,7 @@ func waitForReady(addr string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		resp, err := client.Get(fmt.Sprintf("http://%s/_/api/groups", addr))
+		resp, err := client.Get(fmt.Sprintf("http://%s/_/api/status", addr))
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
