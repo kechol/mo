@@ -90,8 +90,17 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (groups.length === 0) return;
+
     const group = groups.find((g) => g.name === activeGroup);
-    if (!group || group.files.length === 0) {
+    if (!group) {
+      // activeGroup doesn't exist; redirect to the first available group
+      const fallback = groups[0].name;
+      setActiveGroup(fallback);
+      window.history.replaceState(null, "", groupToPath(fallback));
+      return;
+    }
+    if (group.files.length === 0) {
       setActiveFileId(null);
       return;
     }

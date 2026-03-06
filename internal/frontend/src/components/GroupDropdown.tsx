@@ -27,9 +27,12 @@ export function GroupDropdown({
   }, [open]);
 
   const isDefault = activeGroup === "default";
+  const activeGroupExists = groups.some((g) => g.name === activeGroup);
 
-  // Single non-default group: show name only (no dropdown)
-  if (groups.length <= 1) {
+  if (groups.length === 0) return null;
+
+  // Single group and it's the active one: show name only (no dropdown)
+  if (groups.length === 1 && activeGroupExists) {
     if (isDefault) return null;
     return (
       <span className="text-sm text-gh-header-text font-bold">
