@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"bufio"
 	"fmt"
 	"log/slog"
 	"net"
@@ -167,7 +167,10 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Fprintf(os.Stderr, "mo: clear saved session for port %d? [Y/n] ", port)
 		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
+		if !scanner.Scan() {
+			fmt.Fprintln(os.Stderr, "mo: cancelled")
+			return nil
+		}
 		ans := strings.TrimSpace(scanner.Text())
 		if ans != "" && strings.ToLower(ans) != "y" && strings.ToLower(ans) != "yes" {
 			fmt.Fprintln(os.Stderr, "mo: cancelled")
@@ -263,16 +266,14 @@ func run(cmd *cobra.Command, args []string) error {
 		if err := backup.Load(port, &rd); err != nil {
 			slog.Warn("failed to load backup", "error", err)
 		}
-		if len(rd.Groups) > 0 || len(rd.Patterns) > 0 {
-			filesByGroup, patternsByGroup := filterValidRestoreData(&rd)
-			if len(filesByGroup) > 0 || len(patternsByGroup) > 0 {
-				slog.Info("restoring session from backup", "port", port)
-				fmt.Fprintf(os.Stderr, "mo: restoring previous session for port %d\n", port)
-				if foreground {
-					return startServer(cmd.Context(), addr, filesByGroup, patternsByGroup)
-				}
-				return startBackground(addr, filesByGroup, patternsByGroup)
+		filesByGroup, patternsByGroup := filterValidRestoreData(&rd)
+		if len(filesByGroup) > 0 || len(patternsByGroup) > 0 {
+			slog.Info("restoring session from backup", "port", port)
+			fmt.Fprintf(os.Stderr, "mo: restoring previous session for port %d\n", port)
+			if foreground {
+				return startServer(cmd.Context(), addr, filesByGroup, patternsByGroup)
 			}
+			return startBackground(addr, filesByGroup, patternsByGroup)
 		}
 	}
 
@@ -305,22 +306,7 @@ func filterValidRestoreData(rd *server.RestoreData) (map[string][]string, map[st
 		}
 	}
 
-	var patternsByGroup map[string][]string
-	if len(rd.Patterns) > 0 {
-		patternsByGroup = make(map[string][]string)
-		for group, pats := range rd.Patterns {
-			patternsByGroup[group] = append(patternsByGroup[group], pats...)
-		}
-	}
-
-	// Remove groups with no remaining files and no patterns
-	for group := range filesByGroup {
-		if len(filesByGroup[group]) == 0 {
-			delete(filesByGroup, group)
-		}
-	}
-
-	return filesByGroup, patternsByGroup
+	return filesByGroup, rd.Patterns
 }
 
 func loadRestoreData(path string) (map[string][]string, map[string][]string, error) {

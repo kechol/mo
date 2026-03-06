@@ -547,25 +547,22 @@ func (s *State) markDirty() {
 }
 
 func (s *State) backupLoop(ctx context.Context) {
-	var timer *time.Timer
+	const debounce = 1 * time.Second
+	timer := time.NewTimer(debounce)
+	timer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			if timer != nil {
-				timer.Stop()
-			}
+			timer.Stop()
 			s.saveBackup()
 			return
 		case _, ok := <-s.backupCh:
 			if !ok {
 				return
 			}
-			if timer != nil {
-				timer.Stop()
-			}
-			timer = time.AfterFunc(1*time.Second, func() {
-				s.saveBackup()
-			})
+			timer.Reset(debounce)
+		case <-timer.C:
+			s.saveBackup()
 		}
 	}
 }
