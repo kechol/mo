@@ -28,7 +28,7 @@ func Path(port int) (string, error) {
 }
 
 // Save atomically writes data to the backup file for the given port.
-func Save(port int, data any) error {
+func Save(port int, data any) (retErr error) {
 	p, err := Path(port)
 	if err != nil {
 		return err
@@ -48,19 +48,21 @@ func Save(port int, data any) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpName := tmp.Name()
+	defer func() {
+		if retErr != nil {
+			os.Remove(tmpName) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
+		}
+	}()
 
 	if _, err := tmp.Write(b); err != nil {
 		tmp.Close()
-		os.Remove(tmpName) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
 		return fmt.Errorf("failed to write backup data: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
 
 	if err := os.Rename(tmpName, p); err != nil { //nolint:gosec // Both paths are from our own Path() and CreateTemp
-		os.Remove(tmpName) //nolint:gosec // Path is from our own CreateTemp, not user-supplied
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

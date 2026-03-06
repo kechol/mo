@@ -37,6 +37,11 @@ type sseEvent struct {
 	Data string // SSE data payload (JSON)
 }
 
+const (
+	eventUpdate      = "update"
+	eventFileChanged = "file-changed"
+)
+
 // GlobPattern represents a glob pattern being watched for new files.
 type GlobPattern struct {
 	Pattern      string // Absolute glob pattern
@@ -123,7 +128,7 @@ func (s *State) AddFile(absPath, groupName string) *FileEntry {
 
 	slog.Info("file added", "path", absPath, "group", groupName, "id", entry.ID)
 
-	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	return entry
 }
 
@@ -195,7 +200,7 @@ func (s *State) ReorderFiles(groupName string, fileIDs []int) bool {
 	}
 
 	g.Files = reordered
-	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	return true
 }
 
@@ -255,7 +260,7 @@ func (s *State) MoveFile(id int, targetGroup string) error {
 	}
 	tg.Files = append(tg.Files, file)
 
-	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	return nil
 }
 
@@ -308,7 +313,7 @@ func (s *State) RemoveFile(id int) bool {
 		}
 	}
 
-	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	return true
 }
 
@@ -465,7 +470,7 @@ func (s *State) RemovePattern(absPattern, groupName string) bool {
 	if g, ok := s.groups[groupName]; ok && len(g.Files) == 0 && !s.groupHasPatterns(groupName) {
 		delete(s.groups, groupName)
 	}
-	s.sendEvent(sseEvent{Name: "update", Data: "{}"})
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
 	s.mu.Unlock()
 	return true
 }
@@ -678,7 +683,7 @@ func (s *State) watchLoop() {
 func (s *State) notifyFileChanged(ids []int) {
 	for _, id := range ids {
 		s.sendEvent(sseEvent{
-			Name: "file-changed",
+			Name: eventFileChanged,
 			Data: fmt.Sprintf(`{"id":%d}`, id),
 		})
 	}
@@ -707,7 +712,7 @@ func (s *State) sendEvent(e sseEvent) {
 			slog.Warn("SSE event dropped (subscriber buffer full)", "event", e.Name)
 		}
 	}
-	if e.Name == "update" {
+	if e.Name == eventUpdate {
 		s.markDirty()
 	}
 }
