@@ -24,6 +24,7 @@ export function useSSE(callbacks: SSECallbacks) {
       es.addEventListener("started", (e) => {
         try {
           const data = JSON.parse(e.data);
+          if (typeof data.pid !== "number") return;
           if (serverPid !== null && data.pid !== serverPid) {
             window.location.reload();
             return;
