@@ -94,8 +94,13 @@ export function App() {
 
     const group = groups.find((g) => g.name === activeGroup);
     if (!group) {
-      // activeGroup doesn't exist; redirect to the first available group
-      const fallback = groups[0].name;
+      // activeGroup doesn't exist; redirect to a deterministic fallback group
+      const sortedGroups = [...groups].sort((a, b) => {
+        if (a.name === "default") return 1;
+        if (b.name === "default") return -1;
+        return a.name.localeCompare(b.name);
+      });
+      const fallback = sortedGroups[0].name;
       setActiveGroup(fallback);
       window.history.replaceState(null, "", groupToPath(fallback));
       return;

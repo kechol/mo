@@ -230,7 +230,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// When no files or patterns are specified and a server is already
 	// running, just open the browser and exit.
 	if len(files) == 0 && len(patterns) == 0 {
-		if _, err := probeServer(addr, probeTimeoutFast); err == nil {
+		if _, err := probeServer(addr, probeTimeoutDefault); err == nil {
 			if !noOpen {
 				openBrowser(addr)
 			}
