@@ -537,7 +537,9 @@ func (s *State) walkDirsForPattern(gp *GlobPattern, fn func(string)) {
 
 	if err := filepath.WalkDir(gp.BaseDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			// Best-effort: still process this path so unwatch can decrement refcounts.
+			fn(path)
+			return fs.SkipDir
 		}
 		if d.IsDir() {
 			fn(path)
