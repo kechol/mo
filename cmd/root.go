@@ -98,6 +98,17 @@ Starting and Stopping:
 
   Use --foreground to keep the mo server in the foreground.
 
+Session Restore:
+  mo automatically saves session state. When starting a new server,
+  the previous session is restored and merged with any specified files.
+
+  $ mo README.md CHANGELOG.md    # Start with two files
+  $ mo --shutdown                # Shut down the server
+  $ mo                           # Restores README.md and CHANGELOG.md
+  $ mo TODO.md                   # Restores previous session + adds TODO.md
+
+  Use --clear to remove a saved session.
+
 Live-Reload:
   mo watches all opened files for changes using filesystem notifications.
   When a file is saved, the browser automatically re-renders the content.
@@ -293,7 +304,7 @@ func run(cmd *cobra.Command, args []string) error {
 }
 
 // mergeGroups merges base and additional group maps, with base entries first.
-// Duplicate entries (by value) in the same group are skipped.
+// Entries from additional that already exist in base for the same group are skipped.
 func mergeGroups(base, additional map[string][]string) map[string][]string {
 	if len(base) == 0 && len(additional) == 0 {
 		return nil
