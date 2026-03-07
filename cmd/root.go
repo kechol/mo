@@ -282,29 +282,39 @@ func run(cmd *cobra.Command, args []string) error {
 	if len(restoredFiles) > 0 || len(restoredPatterns) > 0 {
 		slog.Info("restoring session from backup", "port", port)
 		fmt.Fprintf(os.Stderr, "mo: restoring previous session for port %d\n", port)
-		for group, paths := range restoredFiles {
-			existing := make(map[string]struct{}, len(filesByGroup[group]))
-			for _, p := range filesByGroup[group] {
-				existing[p] = struct{}{}
-			}
-			for _, p := range paths {
-				if _, ok := existing[p]; !ok {
-					filesByGroup[group] = append(filesByGroup[group], p)
-				}
-			}
-		}
-		if patternsByGroup == nil && len(restoredPatterns) > 0 {
-			patternsByGroup = make(map[string][]string)
-		}
-		for group, pats := range restoredPatterns {
-			patternsByGroup[group] = append(patternsByGroup[group], pats...)
-		}
+		filesByGroup = mergeGroups(restoredFiles, filesByGroup)
+		patternsByGroup = mergeGroups(restoredPatterns, patternsByGroup)
 	}
 
 	if foreground {
 		return startServer(cmd.Context(), addr, filesByGroup, patternsByGroup)
 	}
 	return startBackground(addr, filesByGroup, patternsByGroup)
+}
+
+// mergeGroups merges base and additional group maps, with base entries first.
+// Duplicate entries (by value) in the same group are skipped.
+func mergeGroups(base, additional map[string][]string) map[string][]string {
+	if len(base) == 0 && len(additional) == 0 {
+		return nil
+	}
+	merged := make(map[string][]string)
+	for group, items := range base {
+		merged[group] = append(merged[group], items...)
+	}
+	for group, items := range additional {
+		seen := make(map[string]struct{}, len(merged[group]))
+		for _, v := range merged[group] {
+			seen[v] = struct{}{}
+		}
+		for _, v := range items {
+			if _, ok := seen[v]; !ok {
+				merged[group] = append(merged[group], v)
+				seen[v] = struct{}{}
+			}
+		}
+	}
+	return merged
 }
 
 // filterValidRestoreData validates restore data by checking that file paths still exist.
