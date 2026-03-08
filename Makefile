@@ -24,6 +24,7 @@ screenshot: build
 	cd internal/frontend && pnpm run screenshots
 
 lint:
+	cd internal/frontend && pnpm run lint
 	golangci-lint run ./...
 	go vet -vettool=`which gostyle` -gostyle.config=$(PWD)/.gostyle.yml ./...
 

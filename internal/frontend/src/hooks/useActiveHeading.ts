@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 export function useActiveHeading(
   headingIds: string[],
   scrollContainer: HTMLElement | null,
 ): string | null {
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeIdRef = useRef<string | null>(null);
+  const subscribersRef = useRef(new Set<() => void>());
 
   useEffect(() => {
     if (!scrollContainer || headingIds.length === 0) {
-      setActiveId(null);
+      if (activeIdRef.current !== null) {
+        activeIdRef.current = null;
+        subscribersRef.current.forEach((cb) => cb());
+      }
       return;
     }
 
@@ -27,10 +31,12 @@ export function useActiveHeading(
           }
         }
 
-        // Find the topmost intersecting heading (in document order)
         for (const id of headingIds) {
           if (intersecting.has(id)) {
-            setActiveId(id);
+            if (activeIdRef.current !== id) {
+              activeIdRef.current = id;
+              subscribersRef.current.forEach((cb) => cb());
+            }
             return;
           }
         }
@@ -48,5 +54,11 @@ export function useActiveHeading(
     return () => observer.disconnect();
   }, [headingIds, scrollContainer]);
 
-  return activeId;
+  return useSyncExternalStore(
+    (cb) => {
+      subscribersRef.current.add(cb);
+      return () => subscribersRef.current.delete(cb);
+    },
+    () => activeIdRef.current,
+  );
 }
