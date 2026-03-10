@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { MarkdownViewer } from "./components/MarkdownViewer";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { WidthToggle } from "./components/WidthToggle";
 import { GroupDropdown } from "./components/GroupDropdown";
 import { ViewModeToggle, type ViewMode } from "./components/ViewModeToggle";
 import { SearchToggle } from "./components/SearchToggle";
@@ -18,6 +19,7 @@ import { fetchGroups, removeFile, reorderFiles } from "./hooks/useApi";
 import { allFileIds, parseGroupFromPath, parseFileIdFromSearch, groupToPath } from "./utils/groups";
 
 const VIEWMODE_STORAGE_KEY = "mo-sidebar-viewmode";
+const WIDTH_STORAGE_KEY = "mo-layout-width";
 
 export function App() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -38,6 +40,13 @@ export function App() {
       /* ignore */
     }
     return {};
+  });
+  const [isWide, setIsWide] = useState(() => {
+    try {
+      return localStorage.getItem(WIDTH_STORAGE_KEY) === "wide";
+    } catch {
+      return false;
+    }
   });
   const knownFileIds = useRef<Set<string>>(new Set());
   const [initialFileId, setInitialFileId] = useState<string | null>(() => {
@@ -187,6 +196,14 @@ export function App() {
     localStorage.setItem(VIEWMODE_STORAGE_KEY, JSON.stringify(viewModes));
   }, [viewModes]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(WIDTH_STORAGE_KEY, isWide ? "wide" : "narrow");
+    } catch {
+      /* ignore */
+    }
+  }, [isWide]);
+
   const handleViewModeToggle = useCallback(() => {
     setViewModes((prev) => {
       const current = prev[activeGroup] ?? "flat";
@@ -276,7 +293,8 @@ export function App() {
         />
         <ViewModeToggle viewMode={currentViewMode} onToggle={handleViewModeToggle} />
         <SearchToggle isOpen={searchQuery != null} onToggle={handleSearchToggle} />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <WidthToggle isWide={isWide} onToggle={() => setIsWide((v) => !v)} />
           <ThemeToggle />
         </div>
       </header>
@@ -306,6 +324,7 @@ export function App() {
                 isTocOpen={tocOpen}
                 onTocToggle={() => setTocOpen((v) => !v)}
                 onRemoveFile={handleRemoveFile}
+                isWide={isWide}
               />
             ) : (
               <div className="flex items-center justify-center h-50 text-gh-text-secondary text-sm">

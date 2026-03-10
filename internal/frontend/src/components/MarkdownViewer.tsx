@@ -31,6 +31,7 @@ interface MarkdownViewerProps {
   isTocOpen: boolean;
   onTocToggle: () => void;
   onRemoveFile: () => void;
+  isWide: boolean;
 }
 
 function getMermaidTheme(): "dark" | "default" {
@@ -379,6 +380,7 @@ export function MarkdownViewer({
   isTocOpen,
   onTocToggle,
   onRemoveFile,
+  isWide,
 }: MarkdownViewerProps) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -556,7 +558,10 @@ export function MarkdownViewer({
 
   return (
     <div className="flex items-start gap-2">
-      <article ref={articleRef} className="markdown-body min-w-0 flex-1">
+      <article
+        ref={articleRef}
+        className={`markdown-body min-w-0 flex-1${isWide ? " markdown-body--wide" : ""}`}
+      >
         {renderedContent}
       </article>
       <div className="shrink-0 flex flex-col gap-2 -mr-4 -mt-4">
