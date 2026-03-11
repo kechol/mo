@@ -121,11 +121,11 @@ func isBinaryFile(path string) (bool, error) {
 	defer f.Close()
 	buf := make([]byte, 8192)
 	n, err := f.Read(buf)
-	if n == 0 {
-		return false, nil
-	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return false, err
+	}
+	if n == 0 {
+		return false, nil
 	}
 	return bytes.IndexByte(buf[:n], 0) >= 0, nil
 }
