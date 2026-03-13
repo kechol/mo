@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -256,13 +258,9 @@ func run(cmd *cobra.Command, args []string) error {
 	target = resolved
 
 	if len(watchPatterns) > 0 && len(args) > 0 {
-		hasGlob := false
-		for _, p := range watchPatterns {
-			if hasGlobChars(p) {
-				hasGlob = true
-				break
-			}
-		}
+		hasGlob := slices.ContainsFunc(watchPatterns, func(p string) bool {
+			return hasGlobChars(p)
+		})
 		if !hasGlob {
 			return fmt.Errorf("cannot use --watch (-w) with file arguments\n(hint: the shell may have expanded the glob pattern; quote it to prevent expansion, e.g. -w '**/*.md')")
 		}
@@ -386,9 +384,7 @@ func filterValidRestoreData(rd *server.RestoreData) (map[string][]string, map[st
 	}
 
 	patternsByGroup := make(map[string][]string)
-	for group, patterns := range rd.Patterns {
-		patternsByGroup[group] = patterns
-	}
+	maps.Copy(patternsByGroup, rd.Patterns)
 
 	return filesByGroup, patternsByGroup, rd.UploadedFiles
 }
@@ -457,13 +453,7 @@ func tryAddToExisting(addr string, files []string, patterns []string) bool {
 		return false
 	}
 
-	isNewGroup := true
-	for _, g := range result.groups {
-		if g == target {
-			isNewGroup = false
-			break
-		}
-	}
+	isNewGroup := !slices.Contains(result.groups, target)
 
 	var deeplinks []deeplinkEntry
 	deeplinks = append(deeplinks, postFiles(result.client, addr, target, files)...)

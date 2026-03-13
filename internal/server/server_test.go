@@ -303,7 +303,7 @@ func TestHandleShutdown(t *testing.T) {
 		s := newTestState(t)
 		handler := NewHandler(s)
 
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			req := httptest.NewRequest("POST", "/_/api/shutdown", nil)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
@@ -354,7 +354,7 @@ func TestHandleRestart(t *testing.T) {
 		}
 		handler := NewHandler(s)
 
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			req := httptest.NewRequest("POST", "/_/api/restart", nil)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
@@ -848,12 +848,10 @@ func TestHandleSSE_StartedEvent(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/_/events", nil).WithContext(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		handler.ServeHTTP(rec, req)
 		pw.Close()
-	}()
+	})
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
