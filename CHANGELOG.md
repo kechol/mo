@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.19.0](https://github.com/k1LoW/mo/compare/v0.18.5...v0.19.0) - 2026-03-18
+### New Features 🎉
+- feat: add title toggle button for heading titles by @k1LoW in https://github.com/k1LoW/mo/pull/121
+- feat: add Content-Security-Policy header by @k1LoW in https://github.com/k1LoW/mo/pull/125
+- feat: add "Copy absolute path" to file context menu by @harakeishi in https://github.com/k1LoW/mo/pull/123
+
 ## [v0.18.5](https://github.com/k1LoW/mo/compare/v0.18.4...v0.18.5) - 2026-03-18
 ### Other Changes
 - docs: add SECURITY.md with vulnerability reporting policy by @k1LoW in https://github.com/k1LoW/mo/pull/119
