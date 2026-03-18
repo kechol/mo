@@ -253,7 +253,7 @@ export function Sidebar({
 
   const handleCopyPath = useCallback((path: string) => {
     setMenuOpenId(null);
-    navigator.clipboard.writeText(path);
+    navigator.clipboard.writeText(path).catch(() => {});
   }, []);
 
   const handleRemove = useCallback((id: string) => {
