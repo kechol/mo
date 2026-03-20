@@ -543,7 +543,7 @@ func TestWaitForServerDown(t *testing.T) {
 		callCount := 0
 		stopCh := make(chan struct{}, 1)
 
-		var srv *httptest.Server
+		var srv *httptest.Server //nolint:staticcheck // declared before assignment so the closure can reference srv
 		srv = newFakeMoServer(t, func(w http.ResponseWriter, r *http.Request) {
 			callCount++
 			if callCount >= 3 {
