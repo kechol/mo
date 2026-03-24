@@ -488,7 +488,11 @@ export function MarkdownViewer({
             className={`${props.className ?? ""}${onZoom ? " cursor-zoom-in" : ""}`}
             onClick={
               onZoom && resolvedSrc
-                ? () => onZoom({ type: "image", src: resolvedSrc, alt: alt ?? undefined })
+                ? (e: React.MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onZoom({ type: "image", src: resolvedSrc, alt: alt ?? undefined });
+                  }
                 : undefined
             }
           />

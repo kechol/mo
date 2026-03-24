@@ -26,9 +26,15 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const calcScale = useCallback((w: number, h: number) => {
+    if (w <= 0 || h <= 0) return 1;
+    const vw = window.innerWidth * 0.85;
+    const vh = window.innerHeight * 0.85;
+    return Math.min(vw / w, vh / h);
+  }, []);
+
   // Measure actual rendered content size and calculate fit scale
   useEffect(() => {
-    // Wait one frame for the hidden content to render and get measured
     const raf = requestAnimationFrame(() => {
       const el = contentRef.current;
       if (!el) {
@@ -37,17 +43,10 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
       }
       const contentW = el.scrollWidth;
       const contentH = el.scrollHeight;
-      if (contentW <= 0 || contentH <= 0) {
-        setInitialScale(1);
-        return;
-      }
-      const vw = window.innerWidth * 0.85;
-      const vh = window.innerHeight * 0.85;
-      const scale = Math.min(vw / contentW, vh / contentH);
-      setInitialScale(scale);
+      setInitialScale(calcScale(contentW, contentH));
     });
     return () => cancelAnimationFrame(raf);
-  }, [content]);
+  }, [content, calcScale]);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -57,6 +56,9 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
       onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Zoom viewer"
     >
       <button
         type="button"
@@ -70,6 +72,7 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
           stroke="currentColor"
           strokeWidth={2}
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
@@ -87,11 +90,10 @@ export function ZoomModal({ content, onClose }: ZoomModalProps) {
               onLoad={() => {
                 const el = contentRef.current;
                 if (el) {
-                  const vw = window.innerWidth * 0.85;
-                  const vh = window.innerHeight * 0.85;
-                  setInitialScale(Math.min(vw / el.scrollWidth, vh / el.scrollHeight));
+                  setInitialScale(calcScale(el.scrollWidth, el.scrollHeight));
                 }
               }}
+              onError={() => setInitialScale(1)}
             />
           ) : (
             <div dangerouslySetInnerHTML={{ __html: content.svg }} />
