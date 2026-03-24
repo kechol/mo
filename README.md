@@ -48,6 +48,7 @@ Download binary from [releases page](https://github.com/k1LoW/mo/releases)
 ``` console
 $ mo README.md                          # Open a single file
 $ mo README.md CHANGELOG.md docs/*.md   # Open multiple files
+$ mo docs/                              # Open all .md files in a directory
 $ mo spec.md --target design            # Open in a named group
 ```
 
@@ -90,6 +91,12 @@ Use `--watch` (`-w`) to specify glob patterns. Matching files are opened automat
 $ mo --watch '**/*.md'                          # Watch and open all .md files recursively
 $ mo --watch 'docs/**/*.md' --target docs       # Watch docs/ tree in "docs" group
 $ mo --watch '*.md' --watch 'docs/**/*.md'      # Multiple patterns
+```
+
+When a directory is passed with `--watch`, it is automatically converted to a `dir/*.md` watch pattern:
+
+``` console
+$ mo --watch docs/                             # Equivalent to mo --watch 'docs/*.md'
 ```
 
 `--watch` cannot be combined with file arguments. The `**` pattern matches directories recursively.
