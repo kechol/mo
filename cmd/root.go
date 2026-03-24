@@ -333,8 +333,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	allWatchPatterns := append(watchPatterns, dirPatterns...)
-	patterns, err := resolvePatterns(allWatchPatterns)
+	patterns, err := resolvePatterns(slices.Concat(watchPatterns, dirPatterns))
 	if err != nil {
 		return err
 	}
