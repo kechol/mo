@@ -25,6 +25,32 @@ import { isMarkdownFile } from "./utils/filetype";
 const VIEWMODE_STORAGE_KEY = "mo-sidebar-viewmode";
 const WIDTH_STORAGE_KEY = "mo-layout-width";
 const SHOW_TITLE_STORAGE_KEY = "mo-sidebar-show-title";
+export const TOC_OPEN_STORAGE_KEY = "mo-toc-open";
+
+export function getInitialTocOpenMap(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(TOC_OPEN_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
+}
+
+export function isTocOpenForFile(
+  map: Record<string, boolean>,
+  fileId: string | null,
+  fileName: string,
+): boolean {
+  if (fileId == null) return false;
+  if (fileName && !isMarkdownFile(fileName)) return false;
+  return map[fileId] === true;
+}
 
 export function App() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -33,7 +59,7 @@ export function App() {
   );
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tocOpen, setTocOpen] = useState(false);
+  const [tocOpenMap, setTocOpenMap] = useState<Record<string, boolean>>(getInitialTocOpenMap);
   const [headings, setHeadings] = useState<TocHeading[]>([]);
   const [contentRevision, setContentRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -182,18 +208,20 @@ export function App() {
     [groups, activeGroup, activeFileId],
   );
   const activeFileName = activeFile?.name ?? "";
+  const tocOpen = isTocOpenForFile(tocOpenMap, activeFileId, activeFileName);
   const currentShowTitle: boolean = showTitles[activeGroup] ?? false;
+
+  const setTocOpen = useCallback(
+    (open: boolean) => {
+      if (activeFileId == null) return;
+      setTocOpenMap((prev) => ({ ...prev, [activeFileId]: open }));
+    },
+    [activeFileId],
+  );
 
   useEffect(() => {
     document.title = (currentShowTitle && activeFile?.title) || activeFileName || "mo";
   }, [currentShowTitle, activeFile?.title, activeFileName]);
-
-  // Auto-close ToC panel when switching to a non-markdown file
-  useEffect(() => {
-    if (activeFileName && !isMarkdownFile(activeFileName)) {
-      setTocOpen(false);
-    }
-  }, [activeFileName]);
 
   useSSE({
     onUpdate: () => {
@@ -221,6 +249,14 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(SHOW_TITLE_STORAGE_KEY, JSON.stringify(showTitles));
   }, [showTitles]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TOC_OPEN_STORAGE_KEY, JSON.stringify(tocOpenMap));
+    } catch {
+      /* ignore */
+    }
+  }, [tocOpenMap]);
 
   useEffect(() => {
     try {
@@ -368,7 +404,7 @@ export function App() {
                 onHeadingsChange={setHeadings}
                 onContentRendered={onContentRendered}
                 isTocOpen={tocOpen}
-                onTocToggle={() => setTocOpen((v) => !v)}
+                onTocToggle={() => setTocOpen(!tocOpen)}
                 onRemoveFile={handleRemoveFile}
                 isWide={isWide}
                 onZoom={handleZoom}
