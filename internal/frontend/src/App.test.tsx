@@ -18,6 +18,16 @@ describe("getInitialTocOpenMap", () => {
     localStorage.setItem(TOC_OPEN_STORAGE_KEY, "not-json");
     expect(getInitialTocOpenMap()).toEqual({});
   });
+
+  it("returns empty object when stored JSON is null", () => {
+    localStorage.setItem(TOC_OPEN_STORAGE_KEY, "null");
+    expect(getInitialTocOpenMap()).toEqual({});
+  });
+
+  it("returns empty object when stored JSON is an array", () => {
+    localStorage.setItem(TOC_OPEN_STORAGE_KEY, "[]");
+    expect(getInitialTocOpenMap()).toEqual({});
+  });
 });
 
 describe("isTocOpenForFile", () => {

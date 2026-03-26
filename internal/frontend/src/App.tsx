@@ -30,7 +30,12 @@ export const TOC_OPEN_STORAGE_KEY = "mo-toc-open";
 export function getInitialTocOpenMap(): Record<string, boolean> {
   try {
     const stored = localStorage.getItem(TOC_OPEN_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
   } catch {
     /* ignore */
   }
