@@ -49,7 +49,7 @@ export function isTocOpenForFile(
 ): boolean {
   if (fileId == null) return false;
   if (fileName && !isMarkdownFile(fileName)) return false;
-  return map[fileId] ?? false;
+  return map[fileId] === true;
 }
 
 export function App() {
