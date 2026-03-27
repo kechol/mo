@@ -1500,13 +1500,15 @@ func handleSearch(state *State) http.HandlerFunc {
 
 		groups := state.Groups()
 		var files []*FileEntry
+		found := false
 		for i := range groups {
 			if groups[i].Name == groupName {
 				files = append([]*FileEntry(nil), groups[i].Files...)
+				found = true
 				break
 			}
 		}
-		if files == nil {
+		if !found {
 			http.Error(w, "group not found", http.StatusNotFound)
 			return
 		}
