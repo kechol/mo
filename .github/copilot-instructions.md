@@ -33,7 +33,7 @@ go test ./...
 # Run a single Go test
 go test ./internal/server/ -run TestHandleFiles
 
-# Run linters (golangci-lint + gostyle)
+# Run linters (oxlint for frontend, golangci-lint + gostyle for Go)
 make lint
 
 # CI target (install dev deps + generate + test)
@@ -48,10 +48,14 @@ make ci
 - `--no-open` — Never open browser
 - `--watch` / `-w` — Glob pattern to watch for matching files (repeatable)
 - `--unwatch` — Remove a watched glob pattern (repeatable)
+- `--close` — Close files instead of opening them
+- `--clear` — Clear saved session for the specified port
 - `--status` — Show status of all running mo servers
 - `--shutdown` — Shut down the running mo server
 - `--restart` — Restart the running mo server
 - `--foreground` — Run mo server in foreground (do not background)
+- `--json` — Output structured data as JSON to stdout
+- `--dangerously-allow-remote-access` — Allow remote access without authentication (trusted networks only)
 
 ## Architecture
 
@@ -62,6 +66,7 @@ make ci
 - `internal/static/static.go` — `go:generate` runs the frontend build, then `go:embed` embeds the output from `internal/static/dist/`.
 - `internal/frontend/` — Vite + React 19 + TypeScript + Tailwind CSS v4 SPA. Build output goes to `internal/static/dist/` (configured in `vite.config.ts`).
 - `version/version.go` — Version info, updated by tagpr on release. Build embeds revision via ldflags.
+- `testdata/` — Sample Markdown files (GFM, mermaid, math, alerts, etc.) and fixture projects for tests and dev. Reuse these for new test cases.
 
 ## API Conventions
 
@@ -84,7 +89,7 @@ Key endpoints:
 
 - Located in `internal/frontend/`, uses **pnpm** as the package manager.
 - React 19, TypeScript, Tailwind CSS v4.
-- Markdown rendering: `react-markdown` + `remark-gfm` + `rehype-raw` + `rehype-slug` (heading IDs) + `@shikijs/rehype` (syntax highlighting) + `mermaid` (diagram rendering).
+- Markdown rendering: `react-markdown` + `remark-gfm` + `rehype-raw` + `rehype-slug` (heading IDs) + `rehype-sanitize` + `@shikijs/rehype` (syntax highlighting) + `mermaid` (diagram rendering) + `remark-math` + `rehype-katex` (math/LaTeX) + `rehype-github-alerts` (GitHub-style alerts) + `react-zoom-pan-pinch` (image zoom).
 - SPA routing via `window.location.pathname` (no router library).
 - Key components: `App.tsx` (routing/state), `Sidebar.tsx` (file list with flat/tree view, resizable, drag-and-drop reorder), `TreeView.tsx` (tree view with collapsible directories), `MarkdownViewer.tsx` (rendering + raw view toggle), `TocPanel.tsx` (table of contents, resizable), `GroupDropdown.tsx` (group switcher), `FileContextMenu.tsx` (shared kebab menu for file operations), `WidthToggle.tsx` (wide/narrow content width toggle).
 - Custom hooks: `useSSE.ts` (SSE subscription with auto-reconnect), `useApi.ts` (typed API fetch wrappers), `useActiveHeading.ts` (scroll-based active heading tracking via IntersectionObserver).
