@@ -228,6 +228,9 @@ func NewState(ctx context.Context) *State {
 // ErrBinaryFile is returned when a file is detected as binary.
 var ErrBinaryFile = errors.New("binary file is not supported")
 
+// ErrFileNotFound is returned when a file is not found in the specified group.
+var ErrFileNotFound = errors.New("file not found")
+
 // readFileHead reads the first 8KB of the file at path.
 // Returns the bytes read and any error (os.ErrNotExist is passed through).
 // Non-regular files return an error.
@@ -424,7 +427,7 @@ func (s *State) MoveFile(id, sourceGroupName, targetGroup string) error {
 		}
 	}
 	if file == nil {
-		return fmt.Errorf("file not found")
+		return ErrFileNotFound
 	}
 
 	if sourceGroupName == targetGroup {
@@ -1375,7 +1378,11 @@ func handleMoveFile(state *State) http.HandlerFunc {
 			return
 		}
 		if err := state.MoveFile(id, sourceGroup, targetGroup); err != nil {
-			http.Error(w, err.Error(), http.StatusConflict)
+			if errors.Is(err, ErrFileNotFound) {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			} else {
+				http.Error(w, err.Error(), http.StatusConflict)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
