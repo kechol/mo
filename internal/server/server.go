@@ -314,6 +314,8 @@ func (s *State) AddUploadedFile(name, content, groupName string) *FileEntry {
 
 	h := sha256.New()
 	h.Write([]byte("upload:"))
+	h.Write([]byte(groupName))
+	h.Write([]byte(":"))
 	h.Write([]byte(content))
 	id := "u" + hex.EncodeToString(h.Sum(nil))[:7]
 
