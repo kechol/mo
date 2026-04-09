@@ -1211,6 +1211,25 @@ func TestAddUploadedFile(t *testing.T) {
 			t.Fatalf("got %d files, want 2", len(s.groups[DefaultGroup].Files))
 		}
 	})
+
+	t.Run("allows same content in different groups", func(t *testing.T) {
+		s := newTestState(t)
+		e1 := s.AddUploadedFile("a.md", "# Same", "src")
+		e2 := s.AddUploadedFile("b.md", "# Same", "dst")
+
+		if e1.ID != e2.ID {
+			t.Fatal("same content should produce same ID")
+		}
+		if e1 == e2 {
+			t.Fatal("different groups should create separate entries")
+		}
+		if len(s.groups["src"].Files) != 1 {
+			t.Fatalf("src group should have 1 file, got %d", len(s.groups["src"].Files))
+		}
+		if len(s.groups["dst"].Files) != 1 {
+			t.Fatalf("dst group should have 1 file, got %d", len(s.groups["dst"].Files))
+		}
+	})
 }
 
 func TestHandleAddFile_RejectsBinaryFile(t *testing.T) {
@@ -1573,24 +1592,6 @@ func TestMoveUploadedFile(t *testing.T) {
 		}
 	})
 
-	t.Run("allows same content in different groups", func(t *testing.T) {
-		s := newTestState(t)
-		e1 := s.AddUploadedFile("a.md", "# Same", "src")
-		e2 := s.AddUploadedFile("b.md", "# Same", "dst")
-
-		if e1.ID != e2.ID {
-			t.Fatal("same content should produce same ID")
-		}
-		if e1 == e2 {
-			t.Fatal("different groups should create separate entries")
-		}
-		if len(s.groups["src"].Files) != 1 {
-			t.Fatalf("src group should have 1 file, got %d", len(s.groups["src"].Files))
-		}
-		if len(s.groups["dst"].Files) != 1 {
-			t.Fatalf("dst group should have 1 file, got %d", len(s.groups["dst"].Files))
-		}
-	})
 }
 
 func TestSnapshotRestoreDataWithUploads(t *testing.T) {
