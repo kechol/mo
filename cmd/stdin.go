@@ -15,8 +15,8 @@ import (
 	"github.com/k1LoW/mo/internal/server"
 )
 
-// isStdinPipe reports whether stdin is a pipe (not a terminal).
-func isStdinPipe() bool {
+// isStdinRedirected reports whether stdin is redirected (not a terminal).
+func isStdinRedirected() bool {
 	fi, err := os.Stdin.Stat()
 	if err != nil {
 		return false
