@@ -32,6 +32,7 @@
 - <img src="images/icons/restart.svg" width="16" height="16" alt="restart"> Server restart with session preservation
 - Auto session backup and restore
 - Drag-and-drop file addition from the OS file manager (content is loaded in-memory; live-reload is not supported for dropped files)
+- Stdin pipe support (`cat file.md | mo`)
 - Live-reload on save (for files opened via CLI)
 
 ## Install
@@ -53,9 +54,21 @@ $ mo README.md                          # Open a single file
 $ mo README.md CHANGELOG.md docs/*.md   # Open multiple files
 $ mo docs/                              # Open all .md files in a directory
 $ mo spec.md --target design            # Open in a named group
+$ cat notes.md | mo                     # Read Markdown from stdin
 ```
 
 `mo` opens Markdown files in a browser with live-reload. When you save a file, the browser automatically reflects the changes.
+
+### Reading from stdin
+
+When no file arguments are given and stdin is a pipe, `mo` reads Markdown content from stdin.
+
+``` console
+$ cat notes.md | mo
+$ some-command | mo --target output
+```
+
+The content is loaded in-memory with a generated name (`stdin-<hash>.md`). Piping the same content again reuses the existing entry (deduplicated by content hash).
 
 ### Single server, multiple files
 
