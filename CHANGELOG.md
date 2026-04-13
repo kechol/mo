@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.2.0](https://github.com/k1LoW/mo/compare/v1.1.1...v1.2.0) - 2026-04-13
+### New Features 🎉
+- feat: support reading Markdown from stdin pipe by @k1LoW in https://github.com/k1LoW/mo/pull/174
+- [codex] Add content font size toggle by @agata in https://github.com/k1LoW/mo/pull/171
+
 ## [v1.1.1](https://github.com/k1LoW/mo/compare/v1.1.0...v1.1.1) - 2026-04-13
 ### Fix bug 🐛
 - fix: decode percent-encoded non-ASCII paths in relative link handler by @k1LoW in https://github.com/k1LoW/mo/pull/173
