@@ -47,9 +47,14 @@ func stdinName(content string) string {
 	return "stdin-" + hex.EncodeToString(h[:])[:7] + ".md"
 }
 
+type uploadRequest struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
 // postUploadedFile uploads in-memory content to a running mo server.
 func postUploadedFile(client *http.Client, addr, group, name, content string) (deeplinkEntry, error) {
-	body, err := json.Marshal(server.UploadedFileData{
+	body, err := json.Marshal(uploadRequest{
 		Name:    name,
 		Content: content,
 	})
