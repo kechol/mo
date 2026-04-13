@@ -757,6 +757,7 @@ func TestReadStdin(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { r.Close() })
 		content := "# Test Document\n\nHello world."
 		go func() {
 			defer w.Close()
@@ -782,6 +783,7 @@ func TestReadStdin(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { r.Close() })
 		go func() {
 			defer w.Close()
 			// Write just over the limit
@@ -805,6 +807,7 @@ func TestReadStdin(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { r.Close() })
 		w.Close()
 
 		name, got, err := readStdin(r)
