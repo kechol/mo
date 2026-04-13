@@ -12,13 +12,15 @@ import (
 	"os"
 
 	"github.com/k1LoW/mo/internal/server"
-	"github.com/mattn/go-isatty"
 )
 
 // isStdinPipe reports whether stdin is a pipe (not a terminal).
 func isStdinPipe() bool {
-	fd := os.Stdin.Fd()
-	return !isatty.IsTerminal(fd) && !isatty.IsCygwinTerminal(fd)
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice == 0
 }
 
 // readStdin reads all content from the given reader and returns
