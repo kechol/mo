@@ -348,7 +348,7 @@ func run(cmd *cobra.Command, args []string) error {
 	var stdinData *server.UploadedFileData
 	if isStdinRedirected() {
 		if len(args) > 0 {
-			return fmt.Errorf("cannot use redirected stdin with file arguments")
+			return fmt.Errorf("cannot use redirected stdin with positional arguments")
 		}
 		if len(watchPatterns) > 0 {
 			return fmt.Errorf("cannot use --watch (-w) with redirected stdin")
