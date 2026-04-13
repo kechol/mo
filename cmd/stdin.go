@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/k1LoW/mo/internal/server"
 )
@@ -71,7 +72,12 @@ func postUploadedFile(client *http.Client, addr, group, name, content string) (d
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return deeplinkEntry{}, fmt.Errorf("upload failed with status %d", resp.StatusCode)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		errText := strings.TrimSpace(string(errBody))
+		if errText != "" {
+			return deeplinkEntry{}, fmt.Errorf("upload failed: %s: %s", resp.Status, errText)
+		}
+		return deeplinkEntry{}, fmt.Errorf("upload failed: %s", resp.Status)
 	}
 	var entry server.FileEntry
 	if err := json.NewDecoder(resp.Body).Decode(&entry); err != nil {
