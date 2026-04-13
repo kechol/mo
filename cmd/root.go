@@ -73,6 +73,8 @@ Examples:
   mo README.md CHANGELOG.md docs/*.md   Open multiple files
   mo spec.md --target design            Open in a named group
   mo draft.md --port 6276               Use a different port
+  cat notes.md | mo                     Read Markdown from stdin
+  cmd | mo --target output              Pipe command output into a group
 
 Single Server, Multiple Files:
   By default, mo runs a single server on port 6275.
@@ -342,17 +344,73 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// When no files or patterns are specified and a server is already
+	// Detect redirected stdin when no positional arguments are given.
+	var stdinData *server.UploadedFileData
+	if isStdinRedirected() {
+		if len(args) > 0 {
+			return fmt.Errorf("cannot use redirected stdin with positional arguments")
+		}
+		if len(watchPatterns) > 0 {
+			return fmt.Errorf("cannot use --watch (-w) with redirected stdin")
+		}
+		name, content, err := readStdin(os.Stdin)
+		if err != nil {
+			return err
+		}
+		stdinData = &server.UploadedFileData{
+			Name:    name,
+			Content: content,
+			Group:   target,
+		}
+	}
+
+	// When no files, patterns, or stdin are specified and a server is already
 	// running, just open the browser and exit.
-	if len(files) == 0 && len(patterns) == 0 {
+	if len(files) == 0 && len(patterns) == 0 && stdinData == nil {
 		if _, err := probeServer(addr, probeTimeoutDefault); err == nil {
 			openBrowser(addr)
 			return nil
 		}
 	}
 
-	if (len(files) > 0 || len(patterns) > 0) && tryAddToExisting(addr, files, patterns) {
-		return nil
+	// Try adding to an existing server.
+	if stdinData != nil || len(files) > 0 || len(patterns) > 0 {
+		result, probeErr := probeServer(addr, probeTimeoutFast)
+		if probeErr == nil {
+			isNewGroup := !slices.Contains(result.groups, target)
+
+			var deeplinks []deeplinkEntry
+			deeplinks = append(deeplinks, postFiles(result.client, addr, target, files)...)
+			deeplinks = append(deeplinks, postPatterns(result.client, addr, target, patterns)...)
+
+			var stdinUploadErr error
+			if stdinData != nil {
+				entry, err := postUploadedFile(result.client, addr, target, stdinData.Name, stdinData.Content)
+				if err != nil {
+					stdinUploadErr = err
+					slog.Warn("failed to upload stdin content", "error", err)
+				} else {
+					deeplinks = append(deeplinks, entry)
+				}
+			}
+
+			if stdinData != nil && len(files) == 0 && len(patterns) == 0 && stdinUploadErr != nil {
+				return stdinUploadErr
+			}
+
+			added := len(files) + len(patterns)
+			if stdinData != nil && stdinUploadErr == nil {
+				added++
+			}
+			slog.Info("added to existing server", "files", len(files), "patterns", len(patterns), "stdin", stdinData != nil, "addr", addr)
+			emitServeOutput(addr, deeplinks, false)
+			fmt.Fprintf(os.Stderr, "mo: added %d item(s) to http://%s\n", added, addr)
+
+			if isNewGroup || open {
+				openBrowser(addr)
+			}
+			return nil
+		}
 	}
 
 	filesByGroup := map[string][]string{target: files}
@@ -376,11 +434,19 @@ func run(cmd *cobra.Command, args []string) error {
 		uploadedFiles = restoredUploads
 	}
 
+	// Append stdin content to uploaded files for the new server.
+	if stdinData != nil {
+		uploadedFiles = append(uploadedFiles, *stdinData)
+	}
+
 	// Prompt only when actually starting a new server (not adding to existing one).
 	if !isLoopbackBind(bind) {
 		slog.Warn("binding to non-loopback address", "bind", bind, "dangerously-allow-remote-access", dangerouslyAllowRemoteAccess)
 	}
 	if !isLoopbackBind(bind) && !dangerouslyAllowRemoteAccess {
+		if stdinData != nil {
+			return fmt.Errorf("cannot use redirected stdin with non-loopback bind without --dangerously-allow-remote-access")
+		}
 		o := termenv.NewOutput(os.Stderr)
 		c := func(s string) termenv.Style { return o.String(s).Foreground(o.Color("208")) }
 		fmt.Fprintln(os.Stderr, c("SECURITY WARNING:").Bold(),
@@ -554,30 +620,6 @@ func resolveArgs(args []string, withWatch bool) (files []string, dirPatterns []s
 		files = append(files, absPath)
 	}
 	return files, dirPatterns, nil
-}
-
-func tryAddToExisting(addr string, files []string, patterns []string) bool {
-	result, err := probeServer(addr, probeTimeoutFast)
-	if err != nil {
-		return false
-	}
-
-	isNewGroup := !slices.Contains(result.groups, target)
-
-	var deeplinks []deeplinkEntry
-	deeplinks = append(deeplinks, postFiles(result.client, addr, target, files)...)
-	deeplinks = append(deeplinks, postPatterns(result.client, addr, target, patterns)...)
-
-	added := len(files) + len(patterns)
-	slog.Info("added to existing server", "files", len(files), "patterns", len(patterns), "addr", addr)
-	emitServeOutput(addr, deeplinks, false)
-	fmt.Fprintf(os.Stderr, "mo: added %d item(s) to http://%s\n", added, addr)
-
-	if isNewGroup || open {
-		openBrowser(addr)
-	}
-
-	return true
 }
 
 func postFiles(client *http.Client, addr, group string, files []string) []deeplinkEntry {
