@@ -72,7 +72,10 @@ func postUploadedFile(client *http.Client, addr, group, name, content string) (d
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		errBody, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if err != nil {
+			return deeplinkEntry{}, fmt.Errorf("upload failed: %s", resp.Status)
+		}
 		errText := strings.TrimSpace(string(errBody))
 		if errText != "" {
 			return deeplinkEntry{}, fmt.Errorf("upload failed: %s: %s", resp.Status, errText)
