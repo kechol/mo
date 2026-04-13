@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1728,7 +1729,12 @@ func handleOpenFile(state *State) http.HandlerFunc {
 			return
 		}
 
-		absPath := filepath.Join(filepath.Dir(entry.Path), req.Path)
+		decodedPath, err := url.PathUnescape(req.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		absPath := filepath.Join(filepath.Dir(entry.Path), decodedPath)
 		absPath = filepath.Clean(absPath)
 
 		if _, err := os.Stat(absPath); err != nil {

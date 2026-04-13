@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1929,5 +1930,97 @@ func TestRemoveFileNotFound(t *testing.T) {
 	// Verify original file is still there
 	if len(s.groups[DefaultGroup].Files) != 1 {
 		t.Error("expected files to be unchanged")
+	}
+}
+
+func TestHandleOpenFile_PercentEncodedNonASCII(t *testing.T) {
+	// Create a temp directory with a non-ASCII markdown file
+	tmpDir := t.TempDir()
+	srcFile := filepath.Join(tmpDir, "index.md")
+	targetFile := filepath.Join(tmpDir, "日本語ファイル.md")
+
+	if err := os.WriteFile(srcFile, []byte("# Index"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(targetFile, []byte("# Japanese"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	srcID := FileID(srcFile)
+	s := newTestState(t)
+	s.groups[DefaultGroup] = &Group{
+		Name: DefaultGroup,
+		Files: []*FileEntry{
+			{ID: srcID, Name: "index.md", Path: srcFile},
+		},
+	}
+
+	handler := NewHandler(s)
+
+	// Simulate browser behavior: percent-encode the non-ASCII filename
+	encodedPath := url.PathEscape("日本語ファイル.md")
+	body, err := json.Marshal(openFileRequest{FileID: srcID, Path: encodedPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/_/api/groups/%s/files/open", DefaultGroup), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got status %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var entry FileEntry
+	if err := json.NewDecoder(rec.Body).Decode(&entry); err != nil {
+		t.Fatal(err)
+	}
+	if entry.Path != targetFile {
+		t.Errorf("got path %q, want %q", entry.Path, targetFile)
+	}
+}
+
+func TestHandleFileRaw_PercentEncodedNonASCII(t *testing.T) {
+	// Create a temp directory with a non-ASCII asset file
+	tmpDir := t.TempDir()
+	mdFile := filepath.Join(tmpDir, "index.md")
+	assetFile := filepath.Join(tmpDir, "画像.txt")
+
+	if err := os.WriteFile(mdFile, []byte("# Index"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(assetFile, []byte("asset content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mdID := FileID(mdFile)
+	s := newTestState(t)
+	s.groups[DefaultGroup] = &Group{
+		Name: DefaultGroup,
+		Files: []*FileEntry{
+			{ID: mdID, Name: "index.md", Path: mdFile},
+		},
+	}
+
+	handler := NewHandler(s)
+
+	// Percent-encode the non-ASCII filename in the URL path
+	encodedName := url.PathEscape("画像.txt")
+	reqURL := fmt.Sprintf("/_/api/groups/%s/files/%s/raw/%s", DefaultGroup, mdID, encodedName)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got status %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	got := rec.Body.String()
+	if !strings.Contains(got, "asset content") {
+		t.Errorf("expected body to contain %q, got %q", "asset content", got)
 	}
 }
