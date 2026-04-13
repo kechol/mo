@@ -22,10 +22,10 @@ async function waitForServer(maxRetries = 30) {
 }
 
 async function addFile(path, group = "default") {
-  const res = await fetch(`${BASE}/_/api/files`, {
+  const res = await fetch(`${BASE}/_/api/groups/${encodeURIComponent(group)}/files`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, group }),
+    body: JSON.stringify({ path }),
   });
   if (!res.ok) throw new Error(`Failed to add file: ${path}`);
   return res.json();
