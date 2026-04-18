@@ -117,6 +117,14 @@ When a directory is passed with `--watch`, it is automatically converted to a `d
 $ mo --watch docs/                             # Equivalent to mo --watch 'docs/*.md'
 ```
 
+Use `--recursive` (`-R`) with a bare directory argument to descend into subdirectories:
+
+``` console
+$ mo -R docs/                                  # Open every .md under docs/
+```
+
+`--recursive` is resolved when the argument is parsed, so it does not combine with `--watch`: for a recursive watch, pass the glob directly with `--watch 'docs/**/*.md'`.
+
 `--watch` cannot be combined with file arguments. The `**` pattern matches directories recursively.
 
 #### Removing watch patterns
@@ -251,6 +259,7 @@ $ mo --status --json
 | `--status` | | | Show all running mo servers |
 | `--watch` | `-w` | | Glob pattern to watch for matching files (repeatable) |
 | `--unwatch` | | | Remove a watched glob pattern (repeatable) |
+| `--recursive` | `-R` | | Recurse into subdirectories when a directory is given |
 | `--close` | | | Close files instead of opening them |
 | `--shutdown` | | | Shut down the running mo server |
 | `--restart` | | | Restart the running mo server |

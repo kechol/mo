@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/k1LoW/errors"
 
 	"github.com/k1LoW/donegroup"
@@ -54,6 +55,7 @@ var (
 	statusServer                 bool
 	watchPatterns                []string
 	unwatchPatterns              []string
+	recursive                    bool
 	closeFiles                   bool
 	clearBackup                  bool
 	jsonOutput                   bool
@@ -146,6 +148,15 @@ Glob Patterns:
   $ mo -w '*.md' -w 'docs/**/*.md'    Watch multiple patterns
   $ mo --unwatch '**/*.md'            Stop watching a pattern
 
+Recursive directories:
+  Use --recursive (-R) with a bare directory argument to include .md
+  files from subdirectories. For a recursive watch, pass the glob
+  directly (-w 'docs/**/*.md') since -w consumes the next token as its
+  value.
+
+  $ mo -R docs/                       Open every .md under docs/
+  $ mo -w 'docs/**/*.md'              Watch docs/ tree recursively
+
 WARNING: --bind with a non-loopback address:
   Binding to a non-localhost address (e.g. 0.0.0.0) exposes mo to the
   network without any authentication. Remote clients can read any file
@@ -178,6 +189,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&statusServer, "status", false, "Show status of all running mo servers")
 	rootCmd.Flags().StringArrayVarP(&watchPatterns, "watch", "w", nil, "Glob pattern to watch for matching files (repeatable)")
 	rootCmd.Flags().StringArrayVar(&unwatchPatterns, "unwatch", nil, "Remove a watched glob pattern (repeatable)")
+	rootCmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "Recursively include .md files in directory arguments")
 	rootCmd.Flags().BoolVar(&closeFiles, "close", false, "Close files instead of opening them")
 	rootCmd.Flags().BoolVar(&clearBackup, "clear", false, "Clear saved session for the specified port")
 	rootCmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured data as JSON to stdout")
@@ -334,7 +346,11 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	files, dirPatterns, err := resolveArgs(args, len(watchPatterns) > 0)
+	if recursive && len(args) == 0 {
+		return fmt.Errorf("--recursive (-R) requires a directory argument")
+	}
+
+	files, dirPatterns, err := resolveArgs(args, len(watchPatterns) > 0, recursive)
 	if err != nil {
 		return err
 	}
@@ -580,7 +596,11 @@ func resolvePatterns(patterns []string) ([]string, error) {
 	return resolved, nil
 }
 
-func resolveArgs(args []string, withWatch bool) (files []string, dirPatterns []string, err error) {
+func resolveArgs(args []string, withWatch, recursive bool) (files []string, dirPatterns []string, err error) {
+	globName := "*.md"
+	if recursive {
+		globName = "**/*.md"
+	}
 	for _, arg := range args {
 		absPath, err := filepath.Abs(arg)
 		if err != nil {
@@ -595,24 +615,15 @@ func resolveArgs(args []string, withWatch bool) (files []string, dirPatterns []s
 		}
 		if stat.IsDir() {
 			if withWatch {
-				dirPatterns = append(dirPatterns, filepath.Join(absPath, "*.md"))
+				dirPatterns = append(dirPatterns, filepath.Join(absPath, globName))
 			} else {
-				matches, err := filepath.Glob(filepath.Join(absPath, "*.md"))
+				fileMatches, err := expandDirMarkdown(absPath, recursive)
 				if err != nil {
-					return nil, nil, fmt.Errorf("failed to glob directory %s: %w", absPath, err)
-				}
-				var fileMatches []string
-				for _, m := range matches {
-					info, err := os.Stat(m)
-					if err != nil || info.IsDir() {
-						continue
-					}
-					fileMatches = append(fileMatches, m)
+					return nil, nil, err
 				}
 				if len(fileMatches) == 0 {
 					return nil, nil, fmt.Errorf("no .md files in %s", absPath)
 				}
-				sort.Strings(fileMatches)
 				files = append(files, fileMatches...)
 			}
 			continue
@@ -620,6 +631,23 @@ func resolveArgs(args []string, withWatch bool) (files []string, dirPatterns []s
 		files = append(files, absPath)
 	}
 	return files, dirPatterns, nil
+}
+
+func expandDirMarkdown(dir string, recursive bool) ([]string, error) {
+	pat := "*.md"
+	if recursive {
+		pat = "**/*.md"
+	}
+	rels, err := doublestar.Glob(os.DirFS(dir), pat, doublestar.WithFilesOnly())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list .md files in %s: %w", dir, err)
+	}
+	matches := make([]string, len(rels))
+	for i, r := range rels {
+		matches[i] = filepath.Join(dir, r)
+	}
+	sort.Strings(matches)
+	return matches, nil
 }
 
 func postFiles(client *http.Client, addr, group string, files []string) []deeplinkEntry {

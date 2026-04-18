@@ -660,7 +660,7 @@ func TestResolveArgs_Directory(t *testing.T) {
 	writeTestFile(t, filepath.Join(dir, "b.md"), []byte("# B"))
 	writeTestFile(t, filepath.Join(dir, "c.txt"), []byte("text"))
 
-	files, dirPatterns, err := resolveArgs([]string{dir}, false)
+	files, dirPatterns, err := resolveArgs([]string{dir}, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -681,7 +681,7 @@ func TestResolveArgs_DirectoryWithWatch(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "a.md"), []byte("# A"))
 
-	files, dirPatterns, err := resolveArgs([]string{dir}, true)
+	files, dirPatterns, err := resolveArgs([]string{dir}, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -700,7 +700,7 @@ func TestResolveArgs_DirectoryWithWatch(t *testing.T) {
 func TestResolveArgs_EmptyDirectory(t *testing.T) {
 	dir := t.TempDir()
 
-	_, _, err := resolveArgs([]string{dir}, false)
+	_, _, err := resolveArgs([]string{dir}, false, false)
 	if err == nil {
 		t.Fatal("expected error for empty directory")
 	}
@@ -826,7 +826,7 @@ func TestReadStdin(t *testing.T) {
 func TestResolveArgs_EmptyDirectoryWithWatch(t *testing.T) {
 	dir := t.TempDir()
 
-	files, dirPatterns, err := resolveArgs([]string{dir}, true)
+	files, dirPatterns, err := resolveArgs([]string{dir}, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -838,6 +838,73 @@ func TestResolveArgs_EmptyDirectoryWithWatch(t *testing.T) {
 	}
 }
 
+func TestResolveArgs_DirectoryRecursive(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a.md"), []byte("# A"))
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(sub, "b.md"), []byte("# B"))
+	writeTestFile(t, filepath.Join(sub, "c.txt"), []byte("text"))
+
+	files, dirPatterns, err := resolveArgs([]string{dir}, false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(dirPatterns) != 0 {
+		t.Fatalf("got %d dirPatterns, want 0", len(dirPatterns))
+	}
+	if len(files) != 2 {
+		t.Fatalf("got %d files, want 2: %v", len(files), files)
+	}
+	wantNested := filepath.Join(sub, "b.md")
+	foundNested := false
+	for _, f := range files {
+		if f == wantNested {
+			foundNested = true
+			break
+		}
+	}
+	if !foundNested {
+		t.Errorf("recursive expansion missed nested file %q in %v", wantNested, files)
+	}
+}
+
+func TestResolveArgs_DirectoryWithWatchRecursive(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "a.md"), []byte("# A"))
+
+	files, dirPatterns, err := resolveArgs([]string{dir}, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("got %d files, want 0", len(files))
+	}
+	if len(dirPatterns) != 1 {
+		t.Fatalf("got %d dirPatterns, want 1", len(dirPatterns))
+	}
+	want := filepath.Join(dir, "**/*.md")
+	if dirPatterns[0] != want {
+		t.Errorf("got pattern %q, want %q", dirPatterns[0], want)
+	}
+}
+
+func TestRun_RecursiveRequiresArgs(t *testing.T) {
+	recursive = true
+	defer func() { recursive = false }()
+
+	err := run(rootCmd, nil)
+	if err == nil {
+		t.Fatal("run should return error when --recursive is used without a directory argument")
+	}
+	want := "--recursive (-R) requires a directory argument"
+	if err.Error() != want {
+		t.Fatalf("got error %q, want %q", err.Error(), want)
+	}
+}
+
 func TestResolveArgs_MixedFilesAndDirs(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "a.md"), []byte("# A"))
@@ -845,7 +912,7 @@ func TestResolveArgs_MixedFilesAndDirs(t *testing.T) {
 	singleFile := filepath.Join(t.TempDir(), "standalone.md")
 	writeTestFile(t, singleFile, []byte("# Standalone"))
 
-	files, dirPatterns, err := resolveArgs([]string{dir, singleFile}, false)
+	files, dirPatterns, err := resolveArgs([]string{dir, singleFile}, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
