@@ -27,6 +27,7 @@ import (
 	"github.com/k1LoW/donegroup"
 	"github.com/k1LoW/mo/internal/backup"
 	"github.com/k1LoW/mo/internal/logfile"
+	"github.com/k1LoW/mo/internal/natsort"
 	"github.com/k1LoW/mo/internal/server"
 	"github.com/k1LoW/mo/version"
 	"github.com/muesli/termenv"
@@ -612,7 +613,7 @@ func resolveArgs(args []string, withWatch bool) (files []string, dirPatterns []s
 				if len(fileMatches) == 0 {
 					return nil, nil, fmt.Errorf("no .md files in %s", absPath)
 				}
-				sort.Strings(fileMatches)
+				natsort.Slice(fileMatches)
 				files = append(files, fileMatches...)
 			}
 			continue
