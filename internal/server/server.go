@@ -23,6 +23,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fsnotify/fsnotify"
 	"github.com/k1LoW/donegroup"
+	"github.com/k1LoW/mo/internal/natsort"
 	"github.com/k1LoW/mo/internal/static"
 	"github.com/k1LoW/mo/version"
 )
@@ -621,6 +622,7 @@ func (s *State) AddPattern(absPattern, groupName string) ([]*FileEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("glob expansion failed: %w", err)
 	}
+	natsort.Slice(matches)
 
 	var entries []*FileEntry
 	for _, m := range matches {
