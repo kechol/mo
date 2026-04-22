@@ -33,6 +33,8 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -636,7 +638,7 @@ func expandGlobPattern(absPattern string) ([]string, error) {
 	for i, r := range rels {
 		matches[i] = filepath.Join(base, r)
 	}
-	sort.Strings(matches)
+	collate.New(language.Und, collate.Numeric).SortStrings(matches)
 	return matches, nil
 }
 
