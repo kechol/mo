@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -775,14 +776,7 @@ func TestResolveArgs_DirectoryRecursive(t *testing.T) {
 		t.Fatalf("got %d files, want 2: %v", len(files), files)
 	}
 	wantNested := filepath.Join(sub, "b.md")
-	foundNested := false
-	for _, f := range files {
-		if f == wantNested {
-			foundNested = true
-			break
-		}
-	}
-	if !foundNested {
+	if !slices.Contains(files, wantNested) {
 		t.Errorf("recursive expansion missed nested file %q in %v", wantNested, files)
 	}
 }
