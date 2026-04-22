@@ -641,7 +641,7 @@ func fetchRegisteredPatterns(addr, groupName string) ([]string, error) {
 			return g.Patterns, nil
 		}
 	}
-	return nil, nil
+	return nil, fmt.Errorf("group %q not found (use --status to see registered groups)", groupName)
 }
 
 func resolveArgs(args []string, watchMode, recursive bool) (files, patterns []string, err error) {

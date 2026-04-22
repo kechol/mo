@@ -285,6 +285,42 @@ func TestResolveUnwatchArgs_RecursiveNoMatch(t *testing.T) {
 	}
 }
 
+func TestResolveUnwatchArgs_RecursiveGroupNotFound(t *testing.T) {
+	dir := t.TempDir()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := statusResponse{
+			Groups: []struct {
+				Name  string `json:"name"`
+				Files []struct {
+					Name string `json:"name"`
+					ID   string `json:"id"`
+					Path string `json:"path"`
+				} `json:"files"`
+				Patterns []string `json:"patterns,omitempty"`
+			}{
+				{
+					Name:     "other",
+					Patterns: []string{"/other/*.md"},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp) //nolint:errcheck
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+	addr := strings.TrimPrefix(ts.URL, "http://")
+
+	_, err := resolveUnwatchArgs([]string{dir}, true, addr, "default")
+	if err == nil {
+		t.Fatal("expected error when group does not exist")
+	}
+	if !strings.Contains(err.Error(), "group") || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("got error %q, want group not found error", err.Error())
+	}
+}
+
 func TestMergeGroups(t *testing.T) {
 	t.Run("restored files come first, CLI files appended after", func(t *testing.T) {
 		base := map[string][]string{"default": {"/a.md", "/b.md"}}
