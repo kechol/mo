@@ -601,7 +601,17 @@ func resolveUnwatchArgs(args []string, recursive bool, addr, groupName string) (
 			patterns = append(patterns, filepath.Join(abs, markdownGlob))
 		}
 	}
-	return patterns, nil
+	seen := make(map[string]struct{}, len(patterns))
+	unique := make([]string, 0, len(patterns))
+	for _, p := range patterns {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		unique = append(unique, p)
+	}
+
+	return unique, nil
 }
 
 func fetchRegisteredPatterns(addr, groupName string) ([]string, error) {
