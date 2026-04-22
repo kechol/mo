@@ -131,7 +131,7 @@ $ mo 'docs/*.md'                               # Expand and open matching .md fi
 
 #### Removing watch patterns
 
-`--unwatch` removes previously registered patterns. Patterns are determined from positional arguments using the same rules as `--watch`. Files already added remain in the sidebar.
+`--unwatch` removes previously registered patterns. Pass glob patterns or directories as positional arguments to specify which patterns to remove. Regular file paths are not accepted (use `--close` to remove individual files from the sidebar). Files already added by a pattern remain in the sidebar.
 
 ``` console
 $ mo --unwatch '**/*.md'                              # Stop watching a pattern (default group)
