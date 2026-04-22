@@ -612,6 +612,10 @@ func fetchRegisteredPatterns(addr, groupName string) ([]string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to query server status: %s", resp.Status)
+	}
+
 	var status statusResponse
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
 		return nil, fmt.Errorf("failed to decode server status: %w", err)
