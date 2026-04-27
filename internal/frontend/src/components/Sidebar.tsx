@@ -225,6 +225,23 @@ export function Sidebar({
     document.body.style.userSelect = "none";
   }, []);
 
+  const onResizeKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 32 : 16;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setWidth((w) => Math.max(MIN_WIDTH, w - step));
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setWidth((w) => Math.min(MAX_WIDTH, w + step));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setWidth(MIN_WIDTH);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setWidth(MAX_WIDTH);
+    }
+  }, []);
+
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!resizeDragging.current) return;
@@ -479,8 +496,16 @@ export function Sidebar({
       </nav>
       {/* Resize handle */}
       <div
-        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-gh-border active:bg-gh-border transition-colors"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        aria-valuenow={width}
+        aria-valuemin={MIN_WIDTH}
+        aria-valuemax={MAX_WIDTH}
+        tabIndex={0}
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-gh-border active:bg-gh-border focus:outline-none focus-visible:bg-gh-text-secondary transition-colors"
         onMouseDown={onMouseDown}
+        onKeyDown={onResizeKeyDown}
       />
     </aside>
   );
