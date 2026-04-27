@@ -17,6 +17,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { FileEntry, Group, SearchResult } from "../hooks/useApi";
 import { removeFile, moveFile } from "../hooks/useApi";
 import { buildFileUrl } from "../utils/groups";
+import { isPlainLeftClick } from "../utils/linkClick";
 import { escapeRegExp } from "../utils/regex";
 import type { ViewMode } from "./ViewModeToggle";
 import { TreeView } from "./TreeView";
@@ -56,6 +57,7 @@ function renderHighlightedText(text: string, query: string) {
 
 interface FileItemProps {
   file: FileEntry;
+  activeGroup: string;
   isActive: boolean;
   showTitle: boolean;
   menuOpenId: string | null;
@@ -72,6 +74,7 @@ interface FileItemProps {
 
 function FileItem({
   file,
+  activeGroup,
   isActive,
   showTitle,
   menuOpenId,
@@ -87,20 +90,26 @@ function FileItem({
 }: FileItemProps) {
   return (
     <div className="relative group/file">
-      <button
-        className={`flex items-center gap-2 w-full px-3 py-2 border-none cursor-pointer text-left text-sm transition-colors duration-150 ${
+      <a
+        href={buildFileUrl(activeGroup, file.id)}
+        className={`flex items-center gap-2 w-full px-3 py-2 border-none cursor-pointer text-left text-sm no-underline transition-colors duration-150 ${
           isActive
             ? "bg-gh-bg-active text-gh-text font-semibold"
             : "bg-transparent text-gh-text-secondary hover:bg-gh-bg-hover"
         }`}
-        onClick={() => onFileSelect(file.id)}
+        onClick={(e) => {
+          if (!isPlainLeftClick(e)) return;
+          e.preventDefault();
+          onFileSelect(file.id);
+        }}
         title={file.uploaded ? file.name : file.path}
+        aria-current={isActive ? "page" : undefined}
       >
         <FileIcon uploaded={file.uploaded} />
         <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">
           {(showTitle && file.title) || file.name}
         </span>
-      </button>
+      </a>
       <FileContextMenu
         file={file}
         isOpen={menuOpenId === file.id}
@@ -356,11 +365,15 @@ export function Sidebar({
                 {contentMatchesOpen &&
                   searchResults.flatMap((result) =>
                     result.matches.map((match, index) => (
-                      <button
+                      <a
                         key={`${result.fileId}:${match.line}:${index}`}
-                        type="button"
-                        className="w-full px-3 py-2 text-left border-none bg-transparent cursor-pointer transition-colors duration-150 hover:bg-gh-bg-hover"
-                        onClick={() => onSearchResultSelect?.(result.fileId, match.heading)}
+                        href={buildFileUrl(activeGroup, result.fileId)}
+                        className="w-full px-3 py-2 text-left border-none bg-transparent cursor-pointer no-underline text-gh-text-secondary transition-colors duration-150 hover:bg-gh-bg-hover"
+                        onClick={(e) => {
+                          if (!isPlainLeftClick(e)) return;
+                          e.preventDefault();
+                          onSearchResultSelect?.(result.fileId, match.heading);
+                        }}
                       >
                         <div className="flex items-center gap-2 text-sm font-medium text-gh-text">
                           <FileIcon uploaded={result.uploaded} />
@@ -390,7 +403,7 @@ export function Sidebar({
                             </div>
                           ))}
                         </div>
-                      </button>
+                      </a>
                     )),
                   )}
               </>
@@ -411,6 +424,7 @@ export function Sidebar({
                     <FileItem
                       key={f.id}
                       file={f}
+                      activeGroup={activeGroup}
                       isActive={f.id === activeFileId}
                       showTitle={showTitle}
                       menuOpenId={menuOpenId}
@@ -459,6 +473,7 @@ export function Sidebar({
                 <SortableFileItem
                   key={f.id}
                   file={f}
+                  activeGroup={activeGroup}
                   isActive={f.id === activeFileId}
                   showTitle={showTitle}
                   menuOpenId={menuOpenId}
