@@ -247,3 +247,24 @@ body,
   --color-prettylights-syntax-invalid-illegal-bg: var(--bgColor-danger-muted);
   --color-prettylights-syntax-invalid-illegal-text: var(--fgColor-danger);
 }
+
+@media print {
+  * {
+    overflow: visible !important;
+    scrollbar-width: none !important;
+  }
+
+  *::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  aside,
+  button,
+  header {
+    display: none !important;
+  }
+
+  .markdown-body {
+    max-width: 980px !important;
+  }
+}
