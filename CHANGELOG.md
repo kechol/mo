@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.4.0](https://github.com/kechol/mo/commits/v1.4.0) - 2026-04-27
+### Other Changes
+- fix: sort file lists in natural order (x/text/collate variant) by @kechol in https://github.com/kechol/mo/pull/2
+- feat: add --recursive (-R) flag and reshape --watch as a boolean toggle by @kechol in https://github.com/kechol/mo/pull/4
+
 ## [v1.4.0](https://github.com/k1LoW/mo/compare/v1.3.0...v1.4.0) - 2026-04-22
 ### Breaking Changes 🛠
 - feat: add --recursive (-R) flag and reshape --watch as a boolean toggle by @kechol in https://github.com/k1LoW/mo/pull/184
