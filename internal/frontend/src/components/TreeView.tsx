@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileEntry, Group } from "../hooks/useApi";
 import { buildTree, type TreeNode } from "../utils/buildTree";
+import { buildFileUrl } from "../utils/groups";
+import { isPlainLeftClick } from "../utils/linkClick";
 import { FileContextMenu } from "./FileContextMenu";
 import { FileIcon } from "./FileIcon";
 
@@ -93,6 +95,7 @@ export function TreeView({
           key={node.fullPath}
           node={node}
           depth={0}
+          activeGroup={activeGroup}
           activeFileId={activeFileId}
           showTitle={showTitle}
           menuOpenId={menuOpenId}
@@ -116,6 +119,7 @@ export function TreeView({
 interface TreeNodeItemProps {
   node: TreeNode;
   depth: number;
+  activeGroup: string;
   activeFileId: string | null;
   showTitle: boolean;
   menuOpenId: string | null;
@@ -135,6 +139,7 @@ interface TreeNodeItemProps {
 function TreeNodeItem({
   node,
   depth,
+  activeGroup,
   activeFileId,
   showTitle,
   menuOpenId,
@@ -156,6 +161,7 @@ function TreeNodeItem({
         file={node.file}
         name={node.name}
         depth={depth}
+        activeGroup={activeGroup}
         activeFileId={activeFileId}
         showTitle={showTitle}
         menuOpenId={menuOpenId}
@@ -205,6 +211,7 @@ function TreeNodeItem({
             key={child.fullPath}
             node={child}
             depth={depth + 1}
+            activeGroup={activeGroup}
             activeFileId={activeFileId}
             showTitle={showTitle}
             menuOpenId={menuOpenId}
@@ -229,6 +236,7 @@ interface FileNodeItemProps {
   file: FileEntry;
   name: string;
   depth: number;
+  activeGroup: string;
   activeFileId: string | null;
   showTitle: boolean;
   menuOpenId: string | null;
@@ -247,6 +255,7 @@ function FileNodeItem({
   file,
   name,
   depth,
+  activeGroup,
   activeFileId,
   showTitle,
   menuOpenId,
@@ -264,21 +273,27 @@ function FileNodeItem({
 
   return (
     <div className="relative group/file">
-      <button
-        className={`flex items-center gap-2 w-full px-3 py-2 border-none cursor-pointer text-left text-sm transition-colors duration-150 ${
+      <a
+        href={buildFileUrl(activeGroup, file.id)}
+        className={`flex items-center gap-2 w-full px-3 py-2 border-none cursor-pointer text-left text-sm no-underline transition-colors duration-150 ${
           isActive
             ? "bg-gh-bg-active text-gh-text font-semibold"
             : "bg-transparent text-gh-text-secondary hover:bg-gh-bg-hover"
         }`}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
-        onClick={() => onFileSelect(file.id)}
+        onClick={(e) => {
+          if (!isPlainLeftClick(e)) return;
+          e.preventDefault();
+          onFileSelect(file.id);
+        }}
         title={file.uploaded ? file.name : file.path}
+        aria-current={isActive ? "page" : undefined}
       >
         <FileIcon uploaded={file.uploaded} />
         <span className="overflow-hidden text-ellipsis whitespace-nowrap pr-6">
           {(showTitle && file.title) || name}
         </span>
-      </button>
+      </a>
       <FileContextMenu
         file={file}
         isOpen={menuOpenId === file.id}
