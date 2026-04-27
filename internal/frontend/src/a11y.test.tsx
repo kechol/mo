@@ -89,9 +89,7 @@ describe("a11y: content area buttons", () => {
 });
 
 describe("a11y: dropdowns and menus", () => {
-  // TODO: GroupDropdown trigger button has no accessible name when the active
-  // group is the default one. Re-enable once the trigger gains aria-label.
-  it.skip("GroupDropdown closed has no axe violations", async () => {
+  it("GroupDropdown closed has no axe violations", async () => {
     const { container } = render(
       <GroupDropdown groups={sampleGroups} activeGroup="default" onGroupChange={() => {}} />,
     );
