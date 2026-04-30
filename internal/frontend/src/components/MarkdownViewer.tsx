@@ -11,6 +11,7 @@ import "katex/dist/katex.min.css";
 import { codeToHtml } from "shiki";
 import mermaid from "mermaid";
 import { fetchFileContent, openRelativeFile } from "../hooks/useApi";
+import { isPlainLeftClick } from "../utils/linkClick";
 import { escapeRegExp } from "../utils/regex";
 import { RawToggle } from "./RawToggle";
 import { TocToggle } from "./TocToggle";
@@ -638,7 +639,7 @@ export function MarkdownViewer({
               <a
                 href={href}
                 onClick={(e) => {
-                  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                  if (!isPlainLeftClick(e)) return;
                   const id = href?.slice(1);
                   if (!id) return;
                   const target = document.getElementById(id);
