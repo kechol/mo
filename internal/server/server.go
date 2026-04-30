@@ -495,6 +495,11 @@ func (s *State) RemoveFilesByPath(absPath string) bool {
 			}
 			filtered = append(filtered, f)
 		}
+		// Clear the truncated tail so removed *FileEntry pointers don't linger
+		// in the backing array and block GC.
+		for i := len(filtered); i < len(g.Files); i++ {
+			g.Files[i] = nil
+		}
 		g.Files = filtered
 		if len(g.Files) == 0 && !s.groupHasPatterns(name) {
 			delete(s.groups, name)
