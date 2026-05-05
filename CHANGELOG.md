@@ -1,5 +1,10 @@
 # Changelog
 
+## [v1.5.2](https://github.com/k1LoW/mo/compare/v1.5.1...v1.5.2) - 2026-05-05
+### Other Changes
+- fix: apply color-scheme dark to root dark theme selector by @Coiggahou2002 in https://github.com/k1LoW/mo/pull/201
+- refactor(frontend): hoist color-scheme to root theme selectors by @k1LoW in https://github.com/k1LoW/mo/pull/203
+
 ## [v1.5.1](https://github.com/k1LoW/mo/compare/v1.5.0...v1.5.1) - 2026-04-30
 ### New Features 🎉
 - fix: drop missing files from state when content fetch hits ENOENT by @k1LoW in https://github.com/k1LoW/mo/pull/196
