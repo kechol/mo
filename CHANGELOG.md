@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.5.3](https://github.com/k1LoW/mo/compare/v1.5.2...v1.5.3) - 2026-05-07
+### Other Changes
+- chore: migrate from fsnotify/fsnotify to gofsnotify/fsnotify by @k1LoW in https://github.com/k1LoW/mo/pull/204
+
 ## [v1.5.2](https://github.com/k1LoW/mo/compare/v1.5.1...v1.5.2) - 2026-05-05
 ### Other Changes
 - fix: apply color-scheme dark to root dark theme selector by @Coiggahou2002 in https://github.com/k1LoW/mo/pull/201
