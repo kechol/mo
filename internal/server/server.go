@@ -1204,17 +1204,31 @@ func (s *State) watchDirsForPattern(gp *GlobPattern) {
 }
 
 func (s *State) addDirWatch(dir string) {
-	canonical := resolvePathAlias(dir)
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.watchedDirs[dir]++
+	added := false
 	if s.watchedDirs[dir] == 1 && s.watcher != nil {
 		if err := s.watcher.Add(dir, watchOps); err != nil {
 			delete(s.watchedDirs, dir)
 			slog.Warn("failed to watch directory", "path", dir, "error", err)
 		} else {
-			s.registerPathAlias(dir, canonical)
+			added = true
 		}
+	}
+	s.mu.Unlock()
+
+	if !added {
+		return
+	}
+
+	canonical := resolvePathAlias(dir)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// Register the alias only if the directory is still being watched: a
+	// concurrent removeDirWatch may have dropped it during the unlock window.
+	if _, stillWatched := s.watchedDirs[dir]; stillWatched {
+		s.registerPathAlias(dir, canonical)
 	}
 }
 
