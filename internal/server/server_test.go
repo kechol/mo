@@ -1756,6 +1756,40 @@ func TestTranslateEventPath(t *testing.T) {
 	}
 }
 
+func TestFindRefsByPath_CoversBothPathFormsViaUnion(t *testing.T) {
+	originalDir := filepath.FromSlash("/var/foo/docs")
+	canonicalDir := filepath.FromSlash("/private/var/foo/docs")
+	originalFile := filepath.Join(originalDir, "x.md")
+	canonicalFile := filepath.Join(canonicalDir, "x.md")
+
+	s := &State{
+		groups: map[string]*Group{
+			DefaultGroup: {Name: DefaultGroup, Files: []*FileEntry{
+				{ID: "orig", Path: originalFile},
+				{ID: "canon", Path: canonicalFile},
+			}},
+		},
+		pathAliases: map[string]string{canonicalDir: originalDir},
+	}
+
+	// Simulate the event delivered for canonicalFile and the watchLoop's
+	// union of findRefsByPath(translated) ∪ findRefsByPath(raw).
+	eventName := canonicalFile
+	eventPath := s.translateEventPath(eventName)
+	refs := s.findRefsByPath(eventPath)
+	if eventPath != eventName {
+		refs = append(refs, s.findRefsByPath(eventName)...)
+	}
+
+	got := map[string]bool{}
+	for _, r := range refs {
+		got[r.ID] = true
+	}
+	if !got["orig"] || !got["canon"] {
+		t.Errorf("union refs = %v, want both \"orig\" and \"canon\"", got)
+	}
+}
+
 func TestPathAliasRegisterAndUnregister(t *testing.T) {
 	s := &State{
 		pathAliases:  map[string]string{},

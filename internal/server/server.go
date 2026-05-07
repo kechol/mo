@@ -957,11 +957,22 @@ func (s *State) watchLoop() {
 				return
 			}
 			eventPath := s.translateEventPath(event.Name)
+			// State entries may be stored under either the original or the
+			// canonical form (e.g. when the user mixes /var/... and
+			// /private/var/... explicitly), so look up refs for both paths
+			// when they differ. Each FileEntry has a single Path string, so
+			// the union cannot double-fire on the same entry.
 			refs := s.findRefsByPath(eventPath)
+			if eventPath != event.Name {
+				refs = append(refs, s.findRefsByPath(event.Name)...)
+			}
 			if len(refs) > 0 {
 				if event.Op.Has(fsnotify.Write) || event.Op.Has(fsnotify.Create) {
 					slog.Info("file changed", "path", eventPath)
 					s.scheduleFileChanged(eventPath)
+					if eventPath != event.Name {
+						s.scheduleFileChanged(event.Name)
+					}
 				}
 				// Editors using atomic save (write-to-temp + rename) cause
 				// the original inode to disappear, which removes the watch.
@@ -977,12 +988,19 @@ func (s *State) watchLoop() {
 						} else {
 							slog.Info("re-watching file", "path", eventPath)
 							s.scheduleFileChanged(eventPath)
+							if eventPath != event.Name {
+								s.scheduleFileChanged(event.Name)
+							}
 						}
 					})
 				}
 			}
-			if (event.Op.Has(fsnotify.Rename) || event.Op.Has(fsnotify.Remove)) && s.isWatchedDir(eventPath) {
-				s.handleDirMove(eventPath)
+			if event.Op.Has(fsnotify.Rename) || event.Op.Has(fsnotify.Remove) {
+				if s.isWatchedDir(eventPath) {
+					s.handleDirMove(eventPath)
+				} else if eventPath != event.Name && s.isWatchedDir(event.Name) {
+					s.handleDirMove(event.Name)
+				}
 			}
 			if event.Op.Has(fsnotify.Create) {
 				s.handleCreateForGlobs(eventPath)
