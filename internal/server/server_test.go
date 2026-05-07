@@ -1761,17 +1761,14 @@ func TestPathAliasRegisterAndUnregister(t *testing.T) {
 	}
 
 	// Build a temp dir whose path differs from its EvalSymlinks form on macOS
-	// (e.g. /var/... → /private/var/...), so registerPathAlias has work to do.
+	// (e.g. /var/... → /private/var/...), so resolvePathAlias has work to do.
 	dir := t.TempDir()
-	canonical, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
-	}
-	if canonical == dir {
+	canonical := resolvePathAlias(dir)
+	if canonical == "" {
 		t.Skipf("temp dir %q is already canonical; skipping", dir)
 	}
 
-	s.registerPathAlias(dir)
+	s.registerPathAlias(dir, canonical)
 	if got := s.pathAliases[canonical]; got != dir {
 		t.Errorf("pathAliases[%q] = %q, want %q", canonical, got, dir)
 	}

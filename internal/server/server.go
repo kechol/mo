@@ -293,6 +293,7 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 
 	title := extractTitle(string(head))
+	canonical := resolvePathAlias(absPath)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -322,7 +323,7 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 		if err := s.watcher.Add(absPath, watchOps); err != nil {
 			slog.Warn("failed to watch file", "path", absPath, "error", err)
 		} else {
-			s.registerPathAlias(absPath)
+			s.registerPathAlias(absPath, canonical)
 		}
 	}
 
@@ -1070,12 +1071,23 @@ type fileRef struct {
 	Group string
 }
 
-// registerPathAlias records the canonical (symlink-resolved) form of orig
-// so watcher events can be mapped back to the stored path. Caller must hold
-// s.mu for write.
-func (s *State) registerPathAlias(orig string) {
+// resolvePathAlias returns the canonical (symlink-resolved) form of orig
+// when it differs from orig, or "" otherwise. Performs filesystem I/O, so
+// callers should invoke it outside any critical section.
+func resolvePathAlias(orig string) string {
 	canonical, err := filepath.EvalSymlinks(orig)
 	if err != nil || canonical == orig {
+		return ""
+	}
+	return canonical
+}
+
+// registerPathAlias records canonical → orig (and the reverse) so watcher
+// events can be mapped back to the stored path. canonical must be the
+// pre-resolved value returned by resolvePathAlias. Caller must hold s.mu
+// for write.
+func (s *State) registerPathAlias(orig, canonical string) {
+	if canonical == "" {
 		return
 	}
 	s.pathAliases[canonical] = orig
@@ -1189,6 +1201,7 @@ func (s *State) watchDirsForPattern(gp *GlobPattern) {
 }
 
 func (s *State) addDirWatch(dir string) {
+	canonical := resolvePathAlias(dir)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.watchedDirs[dir]++
@@ -1197,7 +1210,7 @@ func (s *State) addDirWatch(dir string) {
 			delete(s.watchedDirs, dir)
 			slog.Warn("failed to watch directory", "path", dir, "error", err)
 		} else {
-			s.registerPathAlias(dir)
+			s.registerPathAlias(dir, canonical)
 		}
 	}
 }
