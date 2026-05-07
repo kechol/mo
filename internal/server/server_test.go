@@ -1754,6 +1754,43 @@ func TestTranslateEventPath(t *testing.T) {
 	}
 }
 
+func TestPathAliasRegisterAndUnregister(t *testing.T) {
+	s := &State{
+		pathAliases:  map[string]string{},
+		aliasReverse: map[string]string{},
+	}
+
+	// Build a temp dir whose path differs from its EvalSymlinks form on macOS
+	// (e.g. /var/... → /private/var/...), so registerPathAlias has work to do.
+	dir := t.TempDir()
+	canonical, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if canonical == dir {
+		t.Skipf("temp dir %q is already canonical; skipping", dir)
+	}
+
+	s.registerPathAlias(dir)
+	if got := s.pathAliases[canonical]; got != dir {
+		t.Errorf("pathAliases[%q] = %q, want %q", canonical, got, dir)
+	}
+	if got := s.aliasReverse[dir]; got != canonical {
+		t.Errorf("aliasReverse[%q] = %q, want %q", dir, got, canonical)
+	}
+
+	s.unregisterPathAlias(dir)
+	if _, ok := s.pathAliases[canonical]; ok {
+		t.Errorf("pathAliases[%q] still present after unregister", canonical)
+	}
+	if _, ok := s.aliasReverse[dir]; ok {
+		t.Errorf("aliasReverse[%q] still present after unregister", dir)
+	}
+
+	// unregister of an unknown path is a no-op.
+	s.unregisterPathAlias("/nonexistent")
+}
+
 func TestExtractTitle(t *testing.T) {
 	tests := []struct {
 		name    string

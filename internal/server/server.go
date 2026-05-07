@@ -200,6 +200,10 @@ type State struct {
 	// our state keeps the user-facing form (/var/...). This mapping lets
 	// the watch loop translate event paths back to their stored keys.
 	pathAliases map[string]string
+	// aliasReverse maps the original path to its canonical form, so an
+	// entry can be removed without re-running EvalSymlinks (which would
+	// fail once the underlying file or directory is gone).
+	aliasReverse map[string]string
 
 	fileChangeDebounce time.Duration
 	fileChangeTimers   map[string]*time.Timer
@@ -225,6 +229,7 @@ func NewState(ctx context.Context) *State {
 		shutdownCh:         make(chan struct{}, 1),
 		watchedDirs:        make(map[string]int),
 		pathAliases:        make(map[string]string),
+		aliasReverse:       make(map[string]string),
 		fileChangeDebounce: defaultFileChangeDebounce,
 		fileChangeTimers:   make(map[string]*time.Timer),
 	}
@@ -522,6 +527,7 @@ func (s *State) RemoveFilesByPath(absPath string) bool {
 		if err := s.watcher.Remove(absPath); err != nil {
 			slog.Warn("failed to unwatch file", "path", absPath, "error", err)
 		}
+		s.unregisterPathAlias(absPath)
 	}
 	s.mu.Unlock()
 
@@ -574,6 +580,7 @@ func (s *State) RemoveFile(id, groupName string) bool {
 			if err := s.watcher.Remove(removedPath); err != nil {
 				slog.Warn("failed to unwatch file", "path", removedPath, "error", err)
 			}
+			s.unregisterPathAlias(removedPath)
 		}
 	}
 
@@ -931,6 +938,7 @@ func (s *State) removeDirWatch(dir string) {
 					slog.Warn("failed to remove directory watch", "dir", dir, "error", err)
 				}
 			}
+			s.unregisterPathAlias(dir)
 		} else {
 			s.watchedDirs[dir] = count
 		}
@@ -1071,6 +1079,18 @@ func (s *State) registerPathAlias(orig string) {
 		return
 	}
 	s.pathAliases[canonical] = orig
+	s.aliasReverse[orig] = canonical
+}
+
+// unregisterPathAlias removes any alias previously registered for orig.
+// Caller must hold s.mu for write.
+func (s *State) unregisterPathAlias(orig string) {
+	canonical, ok := s.aliasReverse[orig]
+	if !ok {
+		return
+	}
+	delete(s.pathAliases, canonical)
+	delete(s.aliasReverse, orig)
 }
 
 // translateEventPath returns the stored form of an event path when the
