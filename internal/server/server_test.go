@@ -1731,8 +1731,10 @@ func TestDirMove(t *testing.T) {
 }
 
 func TestTranslateEventPath(t *testing.T) {
+	canonicalDir := filepath.FromSlash("/private/var/foo/docs")
+	originalDir := filepath.FromSlash("/var/foo/docs")
 	s := &State{pathAliases: map[string]string{
-		"/private/var/foo/docs": "/var/foo/docs",
+		canonicalDir: originalDir,
 	}}
 
 	tests := []struct {
@@ -1740,10 +1742,10 @@ func TestTranslateEventPath(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"exact match", "/private/var/foo/docs", "/var/foo/docs"},
-		{"prefix match for file under aliased dir", "/private/var/foo/docs/new.md", "/var/foo/docs/new.md"},
-		{"prefix match for nested file", "/private/var/foo/docs/sub/note.md", "/var/foo/docs/sub/note.md"},
-		{"no alias passes through", "/other/path/file.md", "/other/path/file.md"},
+		{"exact match", canonicalDir, originalDir},
+		{"prefix match for file under aliased dir", filepath.Join(canonicalDir, "new.md"), filepath.Join(originalDir, "new.md")},
+		{"prefix match for nested file", filepath.Join(canonicalDir, "sub", "note.md"), filepath.Join(originalDir, "sub", "note.md")},
+		{"no alias passes through", filepath.FromSlash("/other/path/file.md"), filepath.FromSlash("/other/path/file.md")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
