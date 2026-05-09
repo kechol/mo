@@ -528,7 +528,7 @@ func (s *State) RemoveFilesByPath(absPath string) bool {
 		}
 	}
 	if removed && s.watcher != nil {
-		if err := s.watcher.Remove(absPath); err != nil {
+		if err := s.watcher.Remove(absPath); err != nil && !errors.Is(err, fsnotify.ErrNotAdded) {
 			slog.Warn("failed to unwatch file", "path", absPath, "error", err)
 		}
 		s.unregisterPathAlias(absPath)
@@ -581,7 +581,11 @@ func (s *State) RemoveFile(id, groupName string) bool {
 			}
 		}
 		if !stillReferenced {
-			if err := s.watcher.Remove(removedPath); err != nil {
+			// ErrNotAdded means the path was never registered with the watcher
+			// — typically because AddFile-time watcher.Add failed (e.g. macOS
+			// FSEvents stream limits). The desired post-state is "not watched"
+			// either way, so silence the warning for that case.
+			if err := s.watcher.Remove(removedPath); err != nil && !errors.Is(err, fsnotify.ErrNotAdded) {
 				slog.Warn("failed to unwatch file", "path", removedPath, "error", err)
 			}
 			s.unregisterPathAlias(removedPath)
