@@ -139,3 +139,17 @@ function sortTree(node: TreeNode): void {
     sortTree(child);
   }
 }
+
+export function collectFiles(node: TreeNode): FileEntry[] {
+  if (node.file != null) return [node.file];
+  return node.children.flatMap(collectFiles);
+}
+
+// Used to derive a directory tree node's absolute path from its descendant
+// FileEntry.path values, since common-prefix removal and single-child
+// collapsing make TreeNode.fullPath unsuitable on its own.
+export function commonParentDir(files: FileEntry[]): string {
+  if (files.length === 0) return "";
+  const dirSegmentsList = files.map((f) => f.path.split("/").slice(0, -1));
+  return findCommonPrefix(dirSegmentsList).join("/");
+}

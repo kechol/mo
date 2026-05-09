@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileEntry, Group } from "../hooks/useApi";
-import { buildTree, type TreeNode } from "../utils/buildTree";
+import { buildTree, collectFiles, type TreeNode } from "../utils/buildTree";
 import { buildFileUrl } from "../utils/groups";
 import { isPlainLeftClick } from "../utils/linkClick";
+import { DirectoryContextMenu } from "./DirectoryContextMenu";
 import { FileContextMenu } from "./FileContextMenu";
 import { FileIcon } from "./FileIcon";
 
 const COLLAPSED_STORAGE_KEY = "mo-sidebar-tree-collapsed";
+
+// Prefixed so dir menu keys cannot collide with file IDs (8 hex chars).
+const dirMenuKey = (fullPath: string): string => `dir:${fullPath}`;
 
 function getInitialCollapsed(group: string): Set<string> {
   try {
@@ -35,6 +39,7 @@ interface TreeViewProps {
   onCopyLink: (id: string) => void;
   onMoveToGroup: (id: string, group: string) => void;
   onRemove: (id: string) => void;
+  onDirRemove: (filesUnderDir: FileEntry[]) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -52,6 +57,7 @@ export function TreeView({
   onCopyLink,
   onMoveToGroup,
   onRemove,
+  onDirRemove,
   menuRef,
 }: TreeViewProps) {
   const tree = useMemo(() => buildTree(files), [files]);
@@ -107,6 +113,7 @@ export function TreeView({
           onCopyLink={onCopyLink}
           onMoveToGroup={onMoveToGroup}
           onRemove={onRemove}
+          onDirRemove={onDirRemove}
           menuRef={menuRef}
           collapsedPaths={collapsedPaths}
           onToggleCollapse={handleToggleCollapse}
@@ -131,6 +138,7 @@ interface TreeNodeItemProps {
   onCopyLink: (id: string) => void;
   onMoveToGroup: (id: string, group: string) => void;
   onRemove: (id: string) => void;
+  onDirRemove: (filesUnderDir: FileEntry[]) => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
   collapsedPaths: Set<string>;
   onToggleCollapse: (path: string) => void;
@@ -151,6 +159,7 @@ function TreeNodeItem({
   onCopyLink,
   onMoveToGroup,
   onRemove,
+  onDirRemove,
   menuRef,
   collapsedPaths,
   onToggleCollapse,
@@ -179,32 +188,42 @@ function TreeNodeItem({
   }
 
   const isCollapsed = collapsedPaths.has(node.fullPath);
+  const menuKey = dirMenuKey(node.fullPath);
 
   return (
     <div>
-      <button
-        className="flex items-center gap-1.5 w-full px-3 py-1.5 border-none cursor-pointer text-left text-sm bg-transparent text-gh-text-secondary hover:bg-gh-bg-hover transition-colors duration-150"
-        style={{ paddingLeft: `${depth * 16 + 12}px` }}
-        onClick={() => onToggleCollapse(node.fullPath)}
-      >
-        {/* Chevron */}
-        <svg
-          className={`size-3 shrink-0 transition-transform duration-150 ${isCollapsed ? "" : "rotate-90"}`}
-          viewBox="0 0 16 16"
-          fill="currentColor"
+      <div className="relative group/dir">
+        <button
+          className="flex items-center gap-1.5 w-full pl-3 pr-8 py-1.5 border-none cursor-pointer text-left text-sm bg-transparent text-gh-text-secondary hover:bg-gh-bg-hover transition-colors duration-150"
+          style={{ paddingLeft: `${depth * 16 + 12}px` }}
+          onClick={() => onToggleCollapse(node.fullPath)}
         >
-          <path d="M6.427 4.427l3.396 3.396a.25.25 0 0 1 0 .354l-3.396 3.396A.25.25 0 0 1 6 11.396V4.604a.25.25 0 0 1 .427-.177Z" />
-        </svg>
-        {/* Folder icon */}
-        <svg className="size-4 shrink-0" viewBox="0 0 16 16" fill="currentColor">
-          {isCollapsed ? (
-            <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2c-.33-.44-.85-.7-1.4-.7Z" />
-          ) : (
-            <path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.2c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1h6.8A1.75 1.75 0 0 1 16 4.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H7.5c-.55 0-1.07-.26-1.4-.7l-.9-1.2a.25.25 0 0 0-.2-.1Z" />
-          )}
-        </svg>
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
-      </button>
+          {/* Chevron */}
+          <svg
+            className={`size-3 shrink-0 transition-transform duration-150 ${isCollapsed ? "" : "rotate-90"}`}
+            viewBox="0 0 16 16"
+            fill="currentColor"
+          >
+            <path d="M6.427 4.427l3.396 3.396a.25.25 0 0 1 0 .354l-3.396 3.396A.25.25 0 0 1 6 11.396V4.604a.25.25 0 0 1 .427-.177Z" />
+          </svg>
+          {/* Folder icon */}
+          <svg className="size-4 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+            {isCollapsed ? (
+              <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2c-.33-.44-.85-.7-1.4-.7Z" />
+            ) : (
+              <path d="M.513 1.513A1.75 1.75 0 0 1 1.75 1h3.2c.55 0 1.07.26 1.4.7l.9 1.2a.25.25 0 0 0 .2.1h6.8A1.75 1.75 0 0 1 16 4.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75c0-.464.184-.91.513-1.237ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25H7.5c-.55 0-1.07-.26-1.4-.7l-.9-1.2a.25.25 0 0 0-.2-.1Z" />
+            )}
+          </svg>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
+        </button>
+        <DirectoryContextMenu
+          menuKey={menuKey}
+          isOpen={menuOpenId === menuKey}
+          onToggle={onMenuToggle}
+          onRemove={() => onDirRemove(collectFiles(node))}
+          menuRef={menuRef}
+        />
+      </div>
       {!isCollapsed &&
         node.children.map((child) => (
           <TreeNodeItem
@@ -223,6 +242,7 @@ function TreeNodeItem({
             onCopyLink={onCopyLink}
             onMoveToGroup={onMoveToGroup}
             onRemove={onRemove}
+            onDirRemove={onDirRemove}
             menuRef={menuRef}
             collapsedPaths={collapsedPaths}
             onToggleCollapse={onToggleCollapse}

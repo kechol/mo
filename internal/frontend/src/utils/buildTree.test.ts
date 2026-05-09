@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { FileEntry } from "../hooks/useApi";
-import { buildTree } from "./buildTree";
+import { buildTree, collectFiles, commonParentDir } from "./buildTree";
 
 function makeFile(id: string, path: string): FileEntry {
   const name = path.split("/").pop()!;
@@ -148,5 +148,69 @@ describe("buildTree", () => {
     expect(root.children[1].name).toBe("a.md");
     expect(root.children[2].name).toBe("dropped.md");
     expect(root.children[2].file?.id).toBe("3");
+  });
+});
+
+describe("collectFiles", () => {
+  it("returns the single file for a leaf node", () => {
+    const root = buildTree([makeFile("1", "/docs/a.md")]);
+    expect(collectFiles(root.children[0]).map((f) => f.id)).toEqual(["1"]);
+  });
+
+  it("returns every descendant file under a directory node", () => {
+    const root = buildTree([
+      makeFile("1", "/proj/a.md"),
+      makeFile("2", "/proj/sub/b.md"),
+      makeFile("3", "/proj/sub/deep/c.md"),
+    ]);
+    // After common-prefix removal /proj is dropped; root children are
+    // [sub (dir), a.md (file)].
+    const subDir = root.children.find((n) => n.name === "sub")!;
+    const ids = collectFiles(subDir)
+      .map((f) => f.id)
+      .sort();
+    expect(ids).toEqual(["2", "3"]);
+  });
+
+  it("works for collapsed single-child directory chains", () => {
+    const root = buildTree([
+      makeFile("1", "/proj/a/b/c/x.md"),
+      makeFile("2", "/proj/a/b/c/y.md"),
+      makeFile("3", "/proj/other.md"),
+    ]);
+    // /proj is the common prefix and is dropped; a/b/c gets collapsed into a
+    // single displayed node. collectFiles must still return both leaves below.
+    const collapsed = root.children.find((n) => n.file == null)!;
+    expect(collapsed.name).toBe("a/b/c");
+    const ids = collectFiles(collapsed)
+      .map((f) => f.id)
+      .sort();
+    expect(ids).toEqual(["1", "2"]);
+  });
+});
+
+describe("commonParentDir", () => {
+  it("returns empty string for empty input", () => {
+    expect(commonParentDir([])).toBe("");
+  });
+
+  it("returns dirname for a single file", () => {
+    expect(commonParentDir([makeFile("1", "/a/b/c.md")])).toBe("/a/b");
+  });
+
+  it("returns the deepest shared directory for files in same dir", () => {
+    expect(
+      commonParentDir([makeFile("1", "/proj/sub/a.md"), makeFile("2", "/proj/sub/b.md")]),
+    ).toBe("/proj/sub");
+  });
+
+  it("returns the deepest shared directory for files at different depths", () => {
+    expect(commonParentDir([makeFile("1", "/proj/a.md"), makeFile("2", "/proj/sub/b.md")])).toBe(
+      "/proj",
+    );
+  });
+
+  it("does not confuse similar prefixes", () => {
+    expect(commonParentDir([makeFile("1", "/foo/a.md"), makeFile("2", "/foobar/b.md")])).toBe("");
   });
 });
