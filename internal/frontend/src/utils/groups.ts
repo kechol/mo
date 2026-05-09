@@ -19,6 +19,10 @@ export function groupToPath(groupName: string): string {
   return groupName === "default" ? "/" : `/${groupName}`;
 }
 
+export function groupApiPath(groupName: string): string {
+  return `/_/api/groups/${encodeURIComponent(groupName)}`;
+}
+
 export function buildFileUrl(groupName: string, fileId: string): string {
   return `${groupToPath(groupName)}?file=${fileId}`;
 }

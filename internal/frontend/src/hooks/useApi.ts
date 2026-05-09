@@ -1,3 +1,5 @@
+import { groupApiPath as groupPath } from "../utils/groups";
+
 export interface FileEntry {
   name: string;
   id: string;
@@ -52,10 +54,6 @@ export interface SearchResponse {
   context: number;
   total: number;
   results: SearchResult[];
-}
-
-function groupPath(group: string): string {
-  return `/_/api/groups/${encodeURIComponent(group)}`;
 }
 
 export async function fetchGroups(): Promise<Group[]> {

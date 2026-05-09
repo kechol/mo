@@ -1975,16 +1975,9 @@ func handleOpenFileRedirect(state *State) http.HandlerFunc {
 			return
 		}
 
-		target := groupSPAPath(groupName) + "?file=" + url.QueryEscape(newEntry.ID)
+		target := GroupSPAPath(groupName) + "?file=" + url.QueryEscape(newEntry.ID)
 		http.Redirect(w, r, target, http.StatusSeeOther) //nolint:gosec // G710: target is "/<validated-group>?file=<server-generated id>", same-origin path only
 	}
-}
-
-func groupSPAPath(name string) string {
-	if name == DefaultGroup {
-		return "/"
-	}
-	return "/" + name
 }
 
 func handleAddPattern(state *State) http.HandlerFunc {

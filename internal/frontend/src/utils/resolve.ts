@@ -1,4 +1,5 @@
 import { buildLocalFileUrl } from "./fileUrl";
+import { groupApiPath } from "./groups";
 
 export type LinkResolution =
   | { type: "external" }
@@ -7,17 +8,13 @@ export type LinkResolution =
   | { type: "file"; href: string }
   | { type: "passthrough" };
 
-function groupApiBase(group: string): string {
-  return `/_/api/groups/${encodeURIComponent(group)}`;
-}
-
 function rawBasePath(group: string, fileId: string): string {
-  return `${groupApiBase(group)}/files/${fileId}/raw`;
+  return `${groupApiPath(group)}/files/${fileId}/raw`;
 }
 
 function buildOpenRedirectUrl(group: string, fileId: string, hrefPath: string): string {
   const params = new URLSearchParams({ from: fileId, path: hrefPath });
-  return `${groupApiBase(group)}/files/open?${params.toString()}`;
+  return `${groupApiPath(group)}/files/open?${params.toString()}`;
 }
 
 export function resolveLink(
