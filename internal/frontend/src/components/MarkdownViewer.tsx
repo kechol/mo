@@ -543,6 +543,7 @@ export function MarkdownViewer({
   searchQuery,
 }: MarkdownViewerProps) {
   const [content, setContent] = useState("");
+  const [baseDir, setBaseDir] = useState("");
   const [loading, setLoading] = useState(true);
   const [isRawView, setIsRawView] = useState(false);
   const [searchHitMarkers, setSearchHitMarkers] = useState<SearchHitMarker[]>([]);
@@ -560,12 +561,14 @@ export function MarkdownViewer({
       .then((data) => {
         if (!cancelled) {
           setContent(data.content);
+          setBaseDir(data.baseDir);
           setLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setContent("Failed to load file.");
+          setBaseDir("");
           setLoading(false);
         }
       });
@@ -576,6 +579,7 @@ export function MarkdownViewer({
 
   const handleLinkClick = useCallback(
     async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+      if (!isPlainLeftClick(e)) return;
       e.preventDefault();
       try {
         const entry = await openRelativeFile(activeGroup, fileId, href);
@@ -626,7 +630,7 @@ export function MarkdownViewer({
         return <img src={resolveImageSrc(src, activeGroup, fileId)} alt={alt} {...props} />;
       },
       a: ({ href, children, ...props }) => {
-        const resolved = resolveLink(href, activeGroup, fileId);
+        const resolved = resolveLink(href, activeGroup, fileId, baseDir);
         switch (resolved.type) {
           case "external":
             return (
@@ -660,13 +664,17 @@ export function MarkdownViewer({
             );
           case "markdown":
             return (
-              <a href={href} onClick={(e) => handleLinkClick(e, resolved.hrefPath)} {...props}>
+              <a
+                href={resolved.navigableUrl}
+                onClick={(e) => handleLinkClick(e, resolved.hrefPath)}
+                {...props}
+              >
                 {children}
               </a>
             );
           case "file":
             return (
-              <a href={resolved.rawUrl} {...props}>
+              <a href={resolved.href} {...props}>
                 {children}
               </a>
             );
@@ -679,7 +687,7 @@ export function MarkdownViewer({
         }
       },
     }),
-    [fileId, handleLinkClick, onZoom],
+    [activeGroup, baseDir, fileId, handleLinkClick, onZoom],
   );
 
   const isMarkdown = isMarkdownFile(fileName);

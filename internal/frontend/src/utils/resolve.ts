@@ -1,18 +1,30 @@
+import { buildLocalFileUrl } from "./fileUrl";
+
 export type LinkResolution =
   | { type: "external" }
   | { type: "hash" }
-  | { type: "markdown"; hrefPath: string }
-  | { type: "file"; rawUrl: string }
+  | { type: "markdown"; hrefPath: string; navigableUrl: string }
+  | { type: "file"; href: string }
   | { type: "passthrough" };
 
+function groupApiBase(group: string): string {
+  return `/_/api/groups/${encodeURIComponent(group)}`;
+}
+
 function rawBasePath(group: string, fileId: string): string {
-  return `/_/api/groups/${encodeURIComponent(group)}/files/${fileId}/raw`;
+  return `${groupApiBase(group)}/files/${fileId}/raw`;
+}
+
+function buildOpenRedirectUrl(group: string, fileId: string, hrefPath: string): string {
+  const params = new URLSearchParams({ from: fileId, path: hrefPath });
+  return `${groupApiBase(group)}/files/open?${params.toString()}`;
 }
 
 export function resolveLink(
   href: string | undefined,
   group: string,
   fileId: string,
+  baseDir: string,
 ): LinkResolution {
   if (!href || href.startsWith("http://") || href.startsWith("https://")) {
     return { type: "external" };
@@ -22,11 +34,19 @@ export function resolveLink(
   }
   const hrefPath = href.split("#")[0];
   if (hrefPath.endsWith(".md") || hrefPath.endsWith(".mdx")) {
-    return { type: "markdown", hrefPath };
+    return {
+      type: "markdown",
+      hrefPath,
+      navigableUrl: buildOpenRedirectUrl(group, fileId, hrefPath),
+    };
   }
   const basename = hrefPath.split("/").pop() || "";
   if (basename.includes(".")) {
-    return { type: "file", rawUrl: `${rawBasePath(group, fileId)}/${href}` };
+    const fileUrl = buildLocalFileUrl(baseDir, href);
+    return {
+      type: "file",
+      href: fileUrl ?? `${rawBasePath(group, fileId)}/${href}`,
+    };
   }
   return { type: "passthrough" };
 }

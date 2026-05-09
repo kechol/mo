@@ -1417,6 +1417,7 @@ func NewHandler(state *State) http.Handler {
 	mux.HandleFunc("GET /_/api/search", handleSearch(state))
 	mux.HandleFunc("GET /_/api/groups/{group}/files/{id}/raw/{path...}", handleFileRaw(state))
 	mux.HandleFunc("POST /_/api/groups/{group}/files/open", handleOpenFile(state))
+	mux.HandleFunc("GET /_/api/groups/{group}/files/open", handleOpenFileRedirect(state))
 	mux.HandleFunc("POST /_/api/patterns", handleAddPattern(state))
 	mux.HandleFunc("DELETE /_/api/patterns", handleRemovePattern(state))
 	mux.HandleFunc("POST /_/api/restart", handleRestart(state))
@@ -1898,6 +1899,33 @@ func handleFileRaw(state *State) http.HandlerFunc {
 	}
 }
 
+func resolveRelativeFile(state *State, groupName, sourceFileID, rawPath string) (*FileEntry, int, error) {
+	entry := state.FindFile(sourceFileID, groupName)
+	if entry == nil {
+		return nil, http.StatusNotFound, errors.New("source file not found in group")
+	}
+	if entry.Uploaded {
+		return nil, http.StatusBadRequest, errors.New("relative links not available for uploaded files")
+	}
+	decodedPath, err := url.PathUnescape(rawPath)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	absPath := filepath.Join(filepath.Dir(entry.Path), decodedPath)
+	absPath = filepath.Clean(absPath)
+	if _, err := os.Stat(absPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, http.StatusNotFound, fmt.Errorf("file not found: %s", absPath)
+		}
+		return nil, http.StatusBadRequest, err
+	}
+	newEntry, err := state.AddFile(absPath, groupName)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	return newEntry, http.StatusOK, nil
+}
+
 func handleOpenFile(state *State) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		groupName, err := resolveGroupFromPath(r)
@@ -1912,37 +1940,9 @@ func handleOpenFile(state *State) http.HandlerFunc {
 			return
 		}
 
-		entry := state.FindFile(req.FileID, groupName)
-		if entry == nil {
-			http.Error(w, "source file not found in group", http.StatusNotFound)
-			return
-		}
-
-		if entry.Uploaded {
-			http.Error(w, "relative links not available for uploaded files", http.StatusBadRequest)
-			return
-		}
-
-		decodedPath, err := url.PathUnescape(req.Path)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		absPath := filepath.Join(filepath.Dir(entry.Path), decodedPath)
-		absPath = filepath.Clean(absPath)
-
-		if _, err := os.Stat(absPath); err != nil {
-			if os.IsNotExist(err) {
-				http.Error(w, fmt.Sprintf("file not found: %s", absPath), http.StatusNotFound)
-			} else {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			}
-			return
-		}
-
-		newEntry, err := state.AddFile(absPath, groupName)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		newEntry, status, rerr := resolveRelativeFile(state, groupName, req.FileID, req.Path)
+		if rerr != nil {
+			http.Error(w, rerr.Error(), status)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -1950,6 +1950,41 @@ func handleOpenFile(state *State) http.HandlerFunc {
 			slog.Error("failed to encode response", "error", err)
 		}
 	}
+}
+
+// handleOpenFileRedirect is the GET form of handleOpenFile: it 303-redirects
+// to the SPA URL so cmd/ctrl+click and middle-click work without JS.
+func handleOpenFileRedirect(state *State) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		groupName, err := resolveGroupFromPath(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		from := r.URL.Query().Get("from")
+		path := r.URL.Query().Get("path")
+		if from == "" || path == "" {
+			http.Error(w, "missing 'from' or 'path' query parameter", http.StatusBadRequest)
+			return
+		}
+
+		newEntry, status, rerr := resolveRelativeFile(state, groupName, from, path)
+		if rerr != nil {
+			http.Error(w, rerr.Error(), status)
+			return
+		}
+
+		target := groupSPAPath(groupName) + "?file=" + url.QueryEscape(newEntry.ID)
+		http.Redirect(w, r, target, http.StatusSeeOther) //nolint:gosec // G710: target is "/<validated-group>?file=<server-generated id>", same-origin path only
+	}
+}
+
+func groupSPAPath(name string) string {
+	if name == DefaultGroup {
+		return "/"
+	}
+	return "/" + name
 }
 
 func handleAddPattern(state *State) http.HandlerFunc {
