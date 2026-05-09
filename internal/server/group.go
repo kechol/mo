@@ -62,3 +62,12 @@ func ResolveGroupName(name string) (string, error) {
 	}
 	return name, nil
 }
+
+// GroupSPAPath returns the SPA URL path for a group: "/" for the default
+// group, "/<name>" otherwise. Mirror of frontend groupToPath in groups.ts.
+func GroupSPAPath(name string) string {
+	if name == DefaultGroup {
+		return "/"
+	}
+	return "/" + name
+}

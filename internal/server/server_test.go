@@ -2229,6 +2229,111 @@ func TestHandleOpenFile_PercentEncodedNonASCII(t *testing.T) {
 	}
 }
 
+func TestHandleOpenFileRedirect(t *testing.T) {
+	t.Run("redirects to SPA URL after registering the resolved file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		srcFile := filepath.Join(tmpDir, "index.md")
+		targetFile := filepath.Join(tmpDir, "report.html")
+		if err := os.WriteFile(srcFile, []byte("# Index"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(targetFile, []byte("<h1>Report</h1>"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		srcID := FileID(srcFile)
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name:  DefaultGroup,
+			Files: []*FileEntry{{ID: srcID, Name: "index.md", Path: srcFile}},
+		}
+
+		handler := NewHandler(s)
+		reqURL := fmt.Sprintf("/_/api/groups/default/files/open?from=%s&path=%s",
+			srcID, url.QueryEscape("report.html"))
+		req := httptest.NewRequest("GET", reqURL, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("got status %d, want %d; body: %s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+		want := fmt.Sprintf("/?file=%s", FileID(targetFile))
+		if got := rec.Header().Get("Location"); got != want {
+			t.Errorf("got Location %q, want %q", got, want)
+		}
+	})
+
+	t.Run("redirects to /<group> for non-default groups", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		srcFile := filepath.Join(tmpDir, "index.md")
+		targetFile := filepath.Join(tmpDir, "other.md")
+		if err := os.WriteFile(srcFile, []byte("# Index"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(targetFile, []byte("# Other"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		srcID := FileID(srcFile)
+		s := newTestState(t)
+		s.groups["docs"] = &Group{
+			Name:  "docs",
+			Files: []*FileEntry{{ID: srcID, Name: "index.md", Path: srcFile}},
+		}
+
+		handler := NewHandler(s)
+		reqURL := fmt.Sprintf("/_/api/groups/docs/files/open?from=%s&path=other.md", srcID)
+		req := httptest.NewRequest("GET", reqURL, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("got status %d, want %d; body: %s", rec.Code, http.StatusSeeOther, rec.Body.String())
+		}
+		want := fmt.Sprintf("/docs?file=%s", FileID(targetFile))
+		if got := rec.Header().Get("Location"); got != want {
+			t.Errorf("got Location %q, want %q", got, want)
+		}
+	})
+
+	t.Run("returns 400 when query parameters are missing", func(t *testing.T) {
+		s := newTestState(t)
+		handler := NewHandler(s)
+		req := httptest.NewRequest("GET", "/_/api/groups/default/files/open", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("returns 404 when source file is not in the group", func(t *testing.T) {
+		s := newTestState(t)
+		handler := NewHandler(s)
+		req := httptest.NewRequest("GET",
+			"/_/api/groups/default/files/open?from=deadbeef&path=other.md", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusNotFound)
+		}
+	})
+
+	t.Run("returns 400 for uploaded source files", func(t *testing.T) {
+		s := newTestState(t)
+		entry := s.AddUploadedFile("test.md", "# Hello", DefaultGroup)
+		handler := NewHandler(s)
+		reqURL := fmt.Sprintf("/_/api/groups/default/files/open?from=%s&path=other.md", entry.ID)
+		req := httptest.NewRequest("GET", reqURL, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusBadRequest)
+		}
+	})
+}
+
 func TestHandleFileRaw_PercentEncodedNonASCII(t *testing.T) {
 	// Create a temp directory with a non-ASCII asset file
 	tmpDir := t.TempDir()

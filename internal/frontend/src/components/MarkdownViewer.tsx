@@ -17,7 +17,8 @@ import { RawToggle } from "./RawToggle";
 import { TocToggle } from "./TocToggle";
 import { CopyButton } from "./CopyButton";
 import { CloseFileButton } from "./CloseFileButton";
-import { resolveLink, resolveImageSrc, extractLanguage } from "../utils/resolve";
+import { MarkdownLink } from "./MarkdownLink";
+import { resolveImageSrc, extractLanguage } from "../utils/resolve";
 import { parseFrontmatter } from "../utils/frontmatter";
 import { stripMdxSyntax } from "../utils/mdx";
 import { isMarkdownFile, detectLanguage } from "../utils/filetype";
@@ -543,6 +544,7 @@ export function MarkdownViewer({
   searchQuery,
 }: MarkdownViewerProps) {
   const [content, setContent] = useState("");
+  const [baseDir, setBaseDir] = useState("");
   const [loading, setLoading] = useState(true);
   const [isRawView, setIsRawView] = useState(false);
   const [searchHitMarkers, setSearchHitMarkers] = useState<SearchHitMarker[]>([]);
@@ -560,12 +562,14 @@ export function MarkdownViewer({
       .then((data) => {
         if (!cancelled) {
           setContent(data.content);
+          setBaseDir(data.baseDir);
           setLoading(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setContent("Failed to load file.");
+          setBaseDir("");
           setLoading(false);
         }
       });
@@ -576,6 +580,7 @@ export function MarkdownViewer({
 
   const handleLinkClick = useCallback(
     async (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+      if (!isPlainLeftClick(e)) return;
       e.preventDefault();
       try {
         const entry = await openRelativeFile(activeGroup, fileId, href);
@@ -625,61 +630,20 @@ export function MarkdownViewer({
         }
         return <img src={resolveImageSrc(src, activeGroup, fileId)} alt={alt} {...props} />;
       },
-      a: ({ href, children, ...props }) => {
-        const resolved = resolveLink(href, activeGroup, fileId);
-        switch (resolved.type) {
-          case "external":
-            return (
-              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-                {children}
-              </a>
-            );
-          case "hash":
-            return (
-              <a
-                href={href}
-                onClick={(e) => {
-                  if (!isPlainLeftClick(e)) return;
-                  const id = href?.slice(1);
-                  if (!id) return;
-                  const target = document.getElementById(id);
-                  if (target) {
-                    e.preventDefault();
-                    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                    target.scrollIntoView({
-                      behavior: reduced ? "auto" : "smooth",
-                      block: "start",
-                    });
-                    history.pushState(null, "", href);
-                  }
-                }}
-                {...props}
-              >
-                {children}
-              </a>
-            );
-          case "markdown":
-            return (
-              <a href={href} onClick={(e) => handleLinkClick(e, resolved.hrefPath)} {...props}>
-                {children}
-              </a>
-            );
-          case "file":
-            return (
-              <a href={resolved.rawUrl} {...props}>
-                {children}
-              </a>
-            );
-          case "passthrough":
-            return (
-              <a href={href} {...props}>
-                {children}
-              </a>
-            );
-        }
-      },
+      a: ({ href, children, ...props }) => (
+        <MarkdownLink
+          href={href}
+          activeGroup={activeGroup}
+          fileId={fileId}
+          baseDir={baseDir}
+          onMarkdownClick={handleLinkClick}
+          {...props}
+        >
+          {children}
+        </MarkdownLink>
+      ),
     }),
-    [fileId, handleLinkClick, onZoom],
+    [activeGroup, baseDir, fileId, handleLinkClick, onZoom],
   );
 
   const isMarkdown = isMarkdownFile(fileName);
