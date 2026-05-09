@@ -15,7 +15,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { FileEntry, Group, SearchResult } from "../hooks/useApi";
-import { removeFile, moveFile } from "../hooks/useApi";
+import { removeFile, removeFilesByDir, moveFile } from "../hooks/useApi";
+import { commonParentDir } from "../utils/buildTree";
 import { buildFileUrl } from "../utils/groups";
 import { isPlainLeftClick } from "../utils/linkClick";
 import { escapeRegExp } from "../utils/regex";
@@ -322,6 +323,19 @@ export function Sidebar({
     [activeGroup],
   );
 
+  const handleDirRemove = useCallback(
+    (targets: FileEntry[]) => {
+      setMenuOpenId(null);
+      if (targets.length === 0) return;
+      const dir = commonParentDir(targets);
+      if (!dir) return;
+      removeFilesByDir(activeGroup, dir).catch((err) => {
+        window.alert(err instanceof Error ? err.message : "Failed to close directory");
+      });
+    },
+    [activeGroup],
+  );
+
   const handleMenuToggle = useCallback((id: string) => {
     setMenuOpenId((prev) => (prev === id ? null : id));
   }, []);
@@ -460,6 +474,7 @@ export function Sidebar({
             onCopyLink={handleCopyLink}
             onMoveToGroup={handleMoveToGroup}
             onRemove={handleRemove}
+            onDirRemove={handleDirRemove}
             menuRef={menuRef}
           />
         ) : (

@@ -2179,6 +2179,180 @@ func TestRemoveFilesByPath_RemovesAcrossGroupsAndCleansEmptyGroups(t *testing.T)
 	}
 }
 
+func TestRemoveFilesByDir(t *testing.T) {
+	t.Run("removes all non-uploaded files under prefix", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
+			Files: []*FileEntry{
+				{ID: FileID("/proj/a.md"), Name: "a.md", Path: "/proj/a.md"},
+				{ID: FileID("/proj/sub/b.md"), Name: "b.md", Path: "/proj/sub/b.md"},
+				{ID: FileID("/proj/sub/c.md"), Name: "c.md", Path: "/proj/sub/c.md"},
+				{ID: FileID("/other/d.md"), Name: "d.md", Path: "/other/d.md"},
+			},
+		}
+
+		removed := s.RemoveFilesByDir("/proj", DefaultGroup)
+		if removed != 3 {
+			t.Errorf("got removed=%d, want 3", removed)
+		}
+		files := s.groups[DefaultGroup].Files
+		if len(files) != 1 || files[0].Path != "/other/d.md" {
+			t.Errorf("got remaining files=%+v, want [/other/d.md]", files)
+		}
+	})
+
+	t.Run("does not match similar but distinct prefix", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
+			Files: []*FileEntry{
+				{ID: FileID("/foo/a.md"), Name: "a.md", Path: "/foo/a.md"},
+				{ID: FileID("/foobar/b.md"), Name: "b.md", Path: "/foobar/b.md"},
+			},
+		}
+
+		removed := s.RemoveFilesByDir("/foo", DefaultGroup)
+		if removed != 1 {
+			t.Errorf("got removed=%d, want 1", removed)
+		}
+		files := s.groups[DefaultGroup].Files
+		if len(files) != 1 || files[0].Path != "/foobar/b.md" {
+			t.Errorf("got remaining files=%+v, want [/foobar/b.md]", files)
+		}
+	})
+
+	t.Run("skips uploaded files", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
+			Files: []*FileEntry{
+				{ID: FileID("/proj/a.md"), Name: "a.md", Path: "/proj/a.md"},
+				{ID: "stdin1234", Name: "stdin-x.md", Path: "/proj/stdin-x.md", Uploaded: true},
+			},
+		}
+
+		removed := s.RemoveFilesByDir("/proj", DefaultGroup)
+		if removed != 1 {
+			t.Errorf("got removed=%d, want 1", removed)
+		}
+		files := s.groups[DefaultGroup].Files
+		if len(files) != 1 || !files[0].Uploaded {
+			t.Errorf("expected uploaded file to remain, got %+v", files)
+		}
+	})
+
+	t.Run("drops empty group when no patterns remain", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
+			Files: []*FileEntry{
+				{ID: FileID("/proj/a.md"), Name: "a.md", Path: "/proj/a.md"},
+				{ID: FileID("/proj/b.md"), Name: "b.md", Path: "/proj/b.md"},
+			},
+		}
+
+		removed := s.RemoveFilesByDir("/proj", DefaultGroup)
+		if removed != 2 {
+			t.Errorf("got removed=%d, want 2", removed)
+		}
+		if _, ok := s.groups[DefaultGroup]; ok {
+			t.Errorf("expected empty group to be dropped, but it still exists")
+		}
+	})
+
+	t.Run("returns 0 when nothing matches", func(t *testing.T) {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name:  DefaultGroup,
+			Files: []*FileEntry{{ID: FileID("/foo/a.md"), Name: "a.md", Path: "/foo/a.md"}},
+		}
+
+		removed := s.RemoveFilesByDir("/bar", DefaultGroup)
+		if removed != 0 {
+			t.Errorf("got removed=%d, want 0", removed)
+		}
+		if len(s.groups[DefaultGroup].Files) != 1 {
+			t.Error("expected files to be unchanged")
+		}
+	})
+}
+
+func TestHandleRemoveFilesByDir(t *testing.T) {
+	newStateWithFiles := func() *State {
+		s := newTestState(t)
+		s.groups[DefaultGroup] = &Group{
+			Name: DefaultGroup,
+			Files: []*FileEntry{
+				{ID: FileID("/proj/a.md"), Name: "a.md", Path: "/proj/a.md"},
+				{ID: FileID("/proj/sub/b.md"), Name: "b.md", Path: "/proj/sub/b.md"},
+				{ID: FileID("/other/c.md"), Name: "c.md", Path: "/other/c.md"},
+			},
+		}
+		return s
+	}
+
+	t.Run("removes files and returns 204", func(t *testing.T) {
+		s := newStateWithFiles()
+		handler := NewHandler(s)
+
+		req := httptest.NewRequest(http.MethodDelete, "/_/api/groups/default/files?dir=/proj", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("got status %d, want %d (body=%q)", rec.Code, http.StatusNoContent, rec.Body.String())
+		}
+		files := s.groups[DefaultGroup].Files
+		if len(files) != 1 || files[0].Path != "/other/c.md" {
+			t.Errorf("got remaining files=%+v, want [/other/c.md]", files)
+		}
+	})
+
+	t.Run("missing dir returns 400", func(t *testing.T) {
+		s := newStateWithFiles()
+		handler := NewHandler(s)
+
+		req := httptest.NewRequest(http.MethodDelete, "/_/api/groups/default/files", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("got status %d, want 400", rec.Code)
+		}
+	})
+
+	t.Run("relative dir returns 400", func(t *testing.T) {
+		s := newStateWithFiles()
+		handler := NewHandler(s)
+
+		req := httptest.NewRequest(http.MethodDelete, "/_/api/groups/default/files?dir=proj", nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("got status %d, want 400", rec.Code)
+		}
+	})
+
+	t.Run("does not collide with single-file delete route", func(t *testing.T) {
+		s := newStateWithFiles()
+		handler := NewHandler(s)
+
+		// Single-file DELETE should still work and only remove the targeted file.
+		req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/_/api/groups/default/files/%s", FileID("/proj/a.md")), nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Fatalf("got status %d, want %d", rec.Code, http.StatusNoContent)
+		}
+		if len(s.groups[DefaultGroup].Files) != 2 {
+			t.Errorf("got %d files remaining, want 2", len(s.groups[DefaultGroup].Files))
+		}
+	})
+}
+
 func TestHandleOpenFile_PercentEncodedNonASCII(t *testing.T) {
 	// Create a temp directory with a non-ASCII markdown file
 	tmpDir := t.TempDir()

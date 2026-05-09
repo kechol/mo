@@ -541,6 +541,74 @@ func (s *State) RemoveFilesByPath(absPath string) bool {
 	return removed
 }
 
+// RemoveFilesByDir removes every non-uploaded file in groupName whose Path is
+// under the given directory, cleans up the watcher, and drops the group if it
+// becomes empty without patterns. Returns the number of files removed.
+func (s *State) RemoveFilesByDir(dir, groupName string) int {
+	if dir == "" {
+		return 0
+	}
+	prefix := strings.TrimRight(dir, string(filepath.Separator)) + string(filepath.Separator)
+
+	s.mu.Lock()
+	g, ok := s.groups[groupName]
+	if !ok {
+		s.mu.Unlock()
+		return 0
+	}
+
+	removedPaths := make([]string, 0)
+	filtered := g.Files[:0]
+	for _, f := range g.Files {
+		if !f.Uploaded && strings.HasPrefix(f.Path, prefix) {
+			removedPaths = append(removedPaths, f.Path)
+			slog.Info("file removed", "path", f.Path, "id", f.ID, "group", groupName) //nolint:gosec // G706: structured logging fields, no injection risk
+			continue
+		}
+		filtered = append(filtered, f)
+	}
+	// Clear truncated tail so removed *FileEntry pointers don't linger in the
+	// backing array and block GC.
+	for i := len(filtered); i < len(g.Files); i++ {
+		g.Files[i] = nil
+	}
+	g.Files = filtered
+
+	if len(removedPaths) == 0 {
+		s.mu.Unlock()
+		return 0
+	}
+
+	if len(g.Files) == 0 && !s.groupHasPatterns(groupName) {
+		delete(s.groups, groupName)
+	}
+
+	// Paths within a single group are unique by construction (AddFile dedups
+	// by ID, which is derived from the path), so removedPaths needs no
+	// separate de-duplication.
+	if s.watcher != nil {
+		stillReferenced := make(map[string]bool, len(removedPaths))
+		for _, og := range s.groups {
+			for _, of := range og.Files {
+				stillReferenced[of.Path] = true
+			}
+		}
+		for _, p := range removedPaths {
+			if stillReferenced[p] {
+				continue
+			}
+			if err := s.watcher.Remove(p); err != nil {
+				slog.Warn("failed to unwatch file", "path", p, "error", err)
+			}
+			s.unregisterPathAlias(p)
+		}
+	}
+	s.mu.Unlock()
+
+	s.sendEvent(sseEvent{Name: eventUpdate, Data: "{}"})
+	return len(removedPaths)
+}
+
 func (s *State) RemoveFile(id, groupName string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1410,6 +1478,7 @@ func NewHandler(state *State) http.Handler {
 	mux.HandleFunc("POST /_/api/groups/{group}/files", handleAddFile(state))
 	mux.HandleFunc("POST /_/api/groups/{group}/files/upload", handleUploadFile(state))
 	mux.HandleFunc("DELETE /_/api/groups/{group}/files/{id}", handleRemoveFile(state))
+	mux.HandleFunc("DELETE /_/api/groups/{group}/files", handleRemoveFilesByDir(state))
 	mux.HandleFunc("PUT /_/api/groups/{group}/files/{id}/group", handleMoveFile(state))
 	mux.HandleFunc("GET /_/api/groups", handleGroups(state))
 	mux.HandleFunc("PUT /_/api/groups/{group}/reorder", handleReorderFiles(state))
@@ -1539,6 +1608,27 @@ func handleRemoveFile(state *State) http.HandlerFunc {
 			http.Error(w, "file not found", http.StatusNotFound)
 			return
 		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func handleRemoveFilesByDir(state *State) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		group, err := resolveGroupFromPath(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		dir := r.URL.Query().Get("dir")
+		if dir == "" {
+			http.Error(w, "missing dir query param", http.StatusBadRequest)
+			return
+		}
+		if !filepath.IsAbs(dir) {
+			http.Error(w, "dir must be an absolute path", http.StatusBadRequest)
+			return
+		}
+		state.RemoveFilesByDir(filepath.Clean(dir), group)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

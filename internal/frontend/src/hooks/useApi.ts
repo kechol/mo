@@ -89,6 +89,13 @@ export async function removeFile(group: string, id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to remove file");
 }
 
+export async function removeFilesByDir(group: string, dir: string): Promise<void> {
+  const res = await fetch(`${groupPath(group)}/files?dir=${encodeURIComponent(dir)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to remove files");
+}
+
 export async function reorderFiles(groupName: string, fileIds: string[]): Promise<void> {
   const res = await fetch(`${groupPath(groupName)}/reorder`, {
     method: "PUT",
